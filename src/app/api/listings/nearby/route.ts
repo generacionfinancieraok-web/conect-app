@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
 
 // GET /api/listings/nearby?lat=xx&lng=xx&radius=xx&limit=xx
 export async function GET(req: NextRequest) {

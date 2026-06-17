@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { SlidersHorizontal, X } from 'lucide-react';
 import ListingCard from '@/components/ListingCard';
@@ -22,7 +22,7 @@ const SORT_OPTIONS = [
 
 interface Category { id: string; name: string; slug: string; icon: string | null; }
 
-export default function SearchPage() {
+function SearchContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -242,5 +242,13 @@ export default function SearchPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<div className="max-w-6xl mx-auto px-4 py-6 text-center text-gray-400">Cargando...</div>}>
+      <SearchContent />
+    </Suspense>
   );
 }
