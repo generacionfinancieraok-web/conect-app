@@ -4,23 +4,27 @@ import { prisma } from '@/lib/prisma';
 import ListingCard from '@/components/ListingCard';
 
 async function getHomeData() {
-  const [listings, categories] = await Promise.all([
-    prisma.listing.findMany({
-      where: { status: 'ACTIVE' },
-      orderBy: { createdAt: 'desc' },
-      take: 24,
-      include: {
-        images: { orderBy: { order: 'asc' }, take: 1 },
-        user: { select: { id: true, name: true, image: true } },
-        category: true,
-      },
-    }),
-    prisma.category.findMany({
-      include: { _count: { select: { listings: true } } },
-      orderBy: { name: 'asc' },
-    }),
-  ]);
-  return { listings, categories };
+  try {
+    const [listings, categories] = await Promise.all([
+      prisma.listing.findMany({
+        where: { status: 'ACTIVE' },
+        orderBy: { createdAt: 'desc' },
+        take: 24,
+        include: {
+          images: { orderBy: { order: 'asc' }, take: 1 },
+          user: { select: { id: true, name: true, image: true } },
+          category: true,
+        },
+      }),
+      prisma.category.findMany({
+        include: { _count: { select: { listings: true } } },
+        orderBy: { name: 'asc' },
+      }),
+    ]);
+    return { listings, categories };
+  } catch {
+    return { listings: [], categories: [] };
+  }
 }
 
 export default async function HomePage() {
