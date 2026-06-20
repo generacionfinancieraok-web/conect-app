@@ -48,6 +48,7 @@ const nextConfig = {
   },
   webpack: (config) => {
     config.resolve.alias['@'] = path.resolve(__dirname, './src');
+    config.cache = false; // deshabilita caché persistente de webpack para evitar errores de resolución
     return config;
   },
   async headers() {
