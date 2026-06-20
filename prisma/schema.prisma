@@ -24,6 +24,23 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  // Reputación del vendedor
+  completedSales       Int   @default(0)   // transacciones concretadas como vendedor
+  totalAcceptedOffers  Int   @default(0)   // ofertas aceptadas como vendedor
+  concretionRate       Float @default(0)   // completedSales / totalAcceptedOffers
+  avgResponseMinutes   Int   @default(0)   // minutos promedio para responder oferta
+
+  // Reputación del comprador
+  offersRejected       Int   @default(0)   // rechazos en últimos 30 días (ponderado)
+  offersTotal          Int   @default(0)   // total de ofertas enviadas
+  offerRejectionRatio  Float @default(0)   // offersRejected / offersTotal
+  buyerLevel           Int   @default(0)   // 0=verde 1=amarillo 2=naranja 3=rojo 4=suspendido
+  buyerLevelSince      DateTime?           // cuándo entró al nivel actual
+  suspendedUntil       DateTime?           // si está suspendido
+
+  // Compras concretadas
+  completedPurchases   Int   @default(0)
+
   accounts         Account[]
   sessions         Session[]
   listings         Listing[]
@@ -39,8 +56,12 @@ model User {
   reportsReceived  Report[]        @relation("ReportsReceived")
   followers        Follow[]        @relation("Following")
   following        Follow[]        @relation("Follower")
-  pushTokens       PushToken[]
-  notifications    Notification[]
+  pushTokens        PushToken[]
+  notifications     Notification[]
+  passwordResetToken PasswordResetToken?
+  blockedUsers      BlockedUser[]   @relation("BlockerUser")
+  blockedBy         BlockedUser[]   @relation("BlockedUser")
+  offerBlocks       OfferBlock[]    @relation("OfferBlockBuyer")
 
   @@map("users")
 }
@@ -87,6 +108,26 @@ model VerificationToken {
 
 // ─── PUBLICACIONES ───────────────────────────────────────────────────────────
 
+enum ListingType {
+  ITEM_WITH_PRICE   // Tipo 1: artículo con precio (Consultar + Hacer Oferta)
+  ITEM_NO_PRICE     // Tipo 2: artículo sin precio (solo Hacer Oferta)
+  SERVICE           // Tipo 3: servicio (solo Enviar Mensaje)
+}
+
+enum ServiceUnit {
+  HOURLY      // por hora
+  PROJECT     // por proyecto
+  VISIT       // por visita
+  SESSION     // por sesión
+  FIXED       // precio fijo
+}
+
+enum ServiceModality {
+  IN_PERSON
+  REMOTE
+  BOTH
+}
+
 enum ListingStatus {
   ACTIVE
   SOLD
@@ -116,10 +157,21 @@ model Listing {
   id          String        @id @default(cuid())
   title       String
   description String        @db.Text
-  price       Float
+  price       Float         @default(0)
   currency    String        @default("ARS")
   condition   Condition     @default(GOOD)
   status      ListingStatus @default(ACTIVE)
+
+  // Tipo de publicación
+  listingType ListingType   @default(ITEM_WITH_PRICE)
+
+  // Tipo 1: precio mínimo aceptado para ofertas
+  minPrice    Float?
+
+  // Tipo 3: campos de servicio
+  serviceUnit     ServiceUnit?
+  serviceModality ServiceModality?
+  serviceCoverage String?   // zona de cobertura
 
   city        String
   province    String
@@ -148,12 +200,14 @@ model Listing {
   offers        Offer[]
   reports       Report[]       @relation("ListingReports")
   promotion     Promotion?
+  offerBlocks   OfferBlock[]
 
   @@index([userId])
   @@index([categoryId])
   @@index([status])
   @@index([promoted])
   @@index([latitude, longitude])
+  @@index([listingType])
   @@map("listings")
 }
 
@@ -203,6 +257,8 @@ model Offer {
   buyerId   String
   sellerId  String
   listingId String
+  expiresAt DateTime?   // 24hs desde creación
+  retryCount Int        @default(0) // número de reintento (0=primera, 1=segunda, 2=tercera)
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
 
@@ -213,15 +269,49 @@ model Offer {
   @@index([buyerId])
   @@index([sellerId])
   @@index([listingId])
+  @@index([expiresAt])
   @@map("offers")
+}
+
+// Bloqueo comprador-publicación (para reintentos y bloqueos permanentes)
+model OfferBlock {
+  id          String   @id @default(cuid())
+  buyerId     String
+  listingId   String
+  retryCount  Int      @default(0)  // cuántos rechazos tuvo en esta publicación
+  ignoredCount Int     @default(0)  // cuántas veces fue ignorado en esta publicación
+  blockedUntil DateTime?            // bloqueado hasta esta fecha (null=no bloqueado)
+  permanent   Boolean  @default(false) // bloqueo permanente (4to rechazo)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  buyer   User    @relation("OfferBlockBuyer", fields: [buyerId], references: [id], onDelete: Cascade)
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([buyerId, listingId])
+  @@index([buyerId])
+  @@index([listingId])
+  @@map("offer_blocks")
 }
 
 // ─── MENSAJERÍA ──────────────────────────────────────────────────────────────
 
+enum ConversationStatus {
+  PENDING_REQUEST   // Tipo 3: esperando aceptación del receptor
+  ACTIVE            // chat habilitado
+  REJECTED          // receptor rechazó la solicitud
+  BLOCKED           // uno bloqueó al otro
+}
+
 model Conversation {
-  id        String    @id @default(cuid())
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id        String             @id @default(cuid())
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  status    ConversationStatus @default(ACTIVE)
+
+  // Para solicitudes de mensaje (Tipo 3)
+  requesterId   String?  // quien inició la conversación
+  requestMessage String? @db.Text  // primer mensaje de solicitud
 
   listingId String
   listing   Listing   @relation(fields: [listingId], references: [id], onDelete: Cascade)
@@ -229,6 +319,7 @@ model Conversation {
   participants User[]    @relation("ConversationParticipants")
   messages     Message[]
 
+  @@index([status])
   @@map("conversations")
 }
 
@@ -236,6 +327,8 @@ model Message {
   id             String       @id @default(cuid())
   body           String       @db.Text
   read           Boolean      @default(false)
+  messageType    String       @default("text") // text | image | offer | proposal | system
+  metadata       String?      @db.Text  // JSON: propuesta formal, contraoferta, etc.
   createdAt      DateTime     @default(now())
 
   senderId       String
@@ -246,6 +339,22 @@ model Message {
 
   @@index([conversationId])
   @@map("messages")
+}
+
+// ─── BLOQUEO DE USUARIOS ─────────────────────────────────────────────────────
+
+model BlockedUser {
+  id          String   @id @default(cuid())
+  blockerId   String
+  blockedId   String
+  createdAt   DateTime @default(now())
+
+  blocker User @relation("BlockerUser", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation("BlockedUser", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+  @@index([blockerId])
+  @@map("blocked_users")
 }
 
 // ─── PAGOS ───────────────────────────────────────────────────────────────────
@@ -304,20 +413,23 @@ enum ReportStatus {
 }
 
 model Report {
-  id         String       @id @default(cuid())
-  reason     String
-  details    String?      @db.Text
-  status     ReportStatus @default(PENDING)
-  reporterId String
-  listingId  String?
-  userId     String?
-  createdAt  DateTime     @default(now())
+  id             String       @id @default(cuid())
+  reason         String
+  details        String?      @db.Text
+  status         ReportStatus @default(PENDING)
+  reporterId     String
+  listingId      String?
+  userId         String?
+  conversationId String?      // reporte dentro de un chat
+  evidence       String?      @db.Text  // JSON: historial capturado
+  createdAt      DateTime     @default(now())
 
   reporter User     @relation("ReportsMade", fields: [reporterId], references: [id], onDelete: Cascade)
   listing  Listing? @relation("ListingReports", fields: [listingId], references: [id], onDelete: SetNull)
   user     User?    @relation("ReportsReceived", fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([reporterId])
+  @@index([status])
   @@map("reports")
 }
 
@@ -352,14 +464,23 @@ model PushToken {
 
 enum NotificationType {
   MESSAGE
+  MESSAGE_REQUEST           // solicitud de chat (Tipo 3)
+  MESSAGE_REQUEST_ACCEPTED  // solicitud aceptada
+  MESSAGE_REQUEST_REJECTED  // solicitud rechazada
   OFFER
   OFFER_ACCEPTED
   OFFER_REJECTED
   OFFER_COUNTERED
+  OFFER_EXPIRED             // oferta vencida sin respuesta
+  OFFER_EXPIRING_SOON       // oferta por vencer en 2hs
+  SERVICE_CONTRACTED        // servicio confirmado
   NEW_FOLLOWER
   REVIEW
   LISTING_SOLD
   PRICE_DROP
+  PAYMENT
+  BUYER_LEVEL_WARNING       // advertencia de nivel comprador
+  SIMILAR_LISTINGS          // publicaciones similares post-rechazo
 }
 
 model Notification {
@@ -375,7 +496,22 @@ model Notification {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([read])
   @@map("notifications")
+}
+
+// ─── PASSWORD RESET ──────────────────────────────────────────────────────────
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  expires   DateTime
+  userId    String   @unique
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_reset_tokens")
 }
 
 // ─── DESTACADOS ──────────────────────────────────────────────────────────────

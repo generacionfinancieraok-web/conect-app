@@ -2,9 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '@/lib/prisma';
+import { rateLimit, getIP } from '@/lib/rateLimit';
 
-// Este endpoint genera un JWT para la app móvil
+// Este endpoint genera un JWT para la app móvil.
 export async function POST(req: NextRequest) {
+  // Rate limit: 10 intentos por IP cada 15 minutos
+  const rl = rateLimit(`login:${getIP(req)}`, { limit: 10, windowSecs: 900 });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Demasiados intentos de inicio de sesión. Intentá en 15 minutos.' },
+      { status: 429, headers: { 'Retry-After': String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } }
+    );
+  }
+
   try {
     const { email, password } = await req.json();
 
@@ -23,10 +33,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Email o contraseña incorrectos' }, { status: 401 });
     }
 
+    const secret = process.env.NEXTAUTH_SECRET || process.env.JWT_SECRET || 'conect-secret-key';
     const token = jwt.sign(
       { id: user.id, email: user.email },
-      process.env.NEXTAUTH_SECRET!,
-      { expiresIn: '30d' }
+      secret,
+      { expiresIn: '90d' }
     );
 
     return NextResponse.json({

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
+import { rateLimit, getIP } from '@/lib/rateLimit';
+import { sendWelcomeEmail } from '@/lib/email';
 
 const registerSchema = z.object({
   name: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
@@ -10,6 +12,15 @@ const registerSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  // Rate limit: 5 registros por IP por hora
+  const rl = rateLimit(`register:${getIP(req)}`, { limit: 5, windowSecs: 3600 });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Demasiados intentos. Intentá nuevamente en una hora.' },
+      { status: 429, headers: { 'Retry-After': String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } }
+    );
+  }
+
   try {
     const body = await req.json();
     const { name, email, password } = registerSchema.parse(body);
@@ -25,6 +36,9 @@ export async function POST(req: NextRequest) {
       data: { name, email, password: hashedPassword },
       select: { id: true, name: true, email: true },
     });
+
+    // Email de bienvenida (no blocking)
+    sendWelcomeEmail(email, name).catch(() => {});
 
     return NextResponse.json({ user }, { status: 201 });
   } catch (error) {
