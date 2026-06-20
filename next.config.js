@@ -1,4 +1,5 @@
 /** @type {import('next').NextConfig} */
+const path = require('path');
 
 const securityHeaders = [
   { key: 'X-DNS-Prefetch-Control', value: 'on' },
@@ -44,6 +45,10 @@ const nextConfig = {
   },
   experimental: {
     serverComponentsExternalPackages: ['@prisma/client', 'bcryptjs'],
+  },
+  webpack: (config) => {
+    config.resolve.alias['@'] = path.resolve(__dirname, './src');
+    return config;
   },
   async headers() {
     return [
