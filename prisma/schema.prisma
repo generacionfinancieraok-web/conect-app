@@ -62,6 +62,7 @@ model User {
   blockedUsers      BlockedUser[]   @relation("BlockerUser")
   blockedBy         BlockedUser[]   @relation("BlockedUser")
   offerBlocks       OfferBlock[]    @relation("OfferBlockBuyer")
+  discoverDismisses DiscoverDismiss[]
 
   @@map("users")
 }
@@ -196,11 +197,12 @@ model Listing {
   images        ListingImage[]
   conversations Conversation[]
   payments      Payment[]
-  favorites     Favorite[]
-  offers        Offer[]
-  reports       Report[]       @relation("ListingReports")
-  promotion     Promotion?
-  offerBlocks   OfferBlock[]
+  favorites         Favorite[]
+  offers            Offer[]
+  reports           Report[]       @relation("ListingReports")
+  promotion         Promotion?
+  offerBlocks       OfferBlock[]
+  discoverDismisses DiscoverDismiss[]
 
   @@index([userId])
   @@index([categoryId])
@@ -514,15 +516,12 @@ model PasswordResetToken {
   @@map("password_reset_tokens")
 }
 
-// ─── DESTACADOS ──────────────────────────────────────────────────────────────
+// ─── DESCUBRIR ───────────────────────────────────────────────────────────────
 
-model Promotion {
+model DiscoverDismiss {
   id        String   @id @default(cuid())
-  listingId String   @unique
-  expiresAt DateTime
+  userId    String
+  listingId String
   createdAt DateTime @default(now())
 
-  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
-
-  @@map("promotions")
-}
+  user    User    @re
