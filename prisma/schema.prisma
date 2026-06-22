@@ -519,9 +519,31 @@ model PasswordResetToken {
 // ─── DESCUBRIR ───────────────────────────────────────────────────────────────
 
 model DiscoverDismiss {
+  id             String   @id @default(cuid())
+  userId         String
+  listingId      String
+  reason         String?  // VERY_EXPENSIVE | NOT_INTERESTED | ALREADY_HAVE | TOO_FAR
+  priceAtDismiss Float?   // precio en el momento del descarte (para reactivación automática)
+  reactivated    Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, listingId])
+  @@index([userId])
+  @@map("discover_dismisses")
+}
+
+// ─── DESTACADOS ──────────────────────────────────────────────────────────────
+
+model Promotion {
   id        String   @id @default(cuid())
-  userId    String
-  listingId String
+  listingId String   @unique
+  expiresAt DateTime
   createdAt DateTime @default(now())
 
-  user    User    @re
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@map("promotions")
+}
