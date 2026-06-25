@@ -141,6 +141,28 @@ export async function sendNewOfferEmail(
   });
 }
 
+export async function sendEmailVerification(to: string, name: string, token: string) {
+  const verifyUrl = `${APP_URL}/api/auth/verify-email?token=${token}`;
+  return sendEmail({
+    to,
+    subject: 'Verificá tu email — Conect App',
+    html: `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px">
+        <h2 style="color:#1a1a2e">Hola, ${name} 👋</h2>
+        <p>Para completar tu registro, verificá tu dirección de email haciendo clic en el botón. El enlace expira en <strong>24 horas</strong>.</p>
+        <a href="${verifyUrl}"
+           style="display:inline-block;margin:16px 0;padding:12px 24px;background:#6366f1;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">
+          Verificar mi email
+        </a>
+        <p style="color:#6b7280;font-size:13px">
+          Si no creaste una cuenta en Conect App, podés ignorar este correo.
+        </p>
+        <p style="color:#6b7280;font-size:12px">O copiá este enlace: ${verifyUrl}</p>
+      </div>
+    `,
+  });
+}
+
 export async function sendOfferResponseEmail(
   to: string,
   sellerName: string,
@@ -149,27 +171,4 @@ export async function sendOfferResponseEmail(
   counterAmount?: number,
   currency?: string,
 ) {
-  const actionLabel = action === 'accepted' ? 'aceptó tu oferta' : action === 'rejected' ? 'rechazó tu oferta' : 'hizo una contraoferta';
-  const emoji = action === 'accepted' ? '✅' : action === 'rejected' ? '❌' : '🔄';
-  const url = `${APP_URL}/offers`;
-  const counterText =
-    action === 'countered' && counterAmount && currency
-      ? `<p>Contraoferta: <strong>${new Intl.NumberFormat('es-AR', { style: 'currency', currency }).format(counterAmount)}</strong></p>`
-      : '';
-
-  return sendEmail({
-    to,
-    subject: `${emoji} ${sellerName} ${actionLabel} — Conect`,
-    html: `
-      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px">
-        <h2 style="color:#1a1a2e">${emoji} Respuesta a tu oferta</h2>
-        <p><strong>${sellerName}</strong> ${actionLabel} por <strong>${listingTitle}</strong>.</p>
-        ${counterText}
-        <a href="${url}"
-           style="display:inline-block;margin:16px 0;padding:12px 24px;background:#6366f1;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">
-          Ver mis ofertas
-        </a>
-      </div>
-    `,
-  });
-}
+  const actionLabel = action === 'accepted' ? 'aceptó tu oferta' : action === 'rejected' ? 'rec

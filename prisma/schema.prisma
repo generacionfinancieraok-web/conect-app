@@ -16,7 +16,12 @@ model User {
   emailVerified DateTime?
   image         String?
   password      String?
-  phone         String?
+  phone             String?
+  phoneVerified     Boolean   @default(false)
+  smsCode           String?
+  smsCodeExpires    DateTime?
+  emailVerifyToken  String?
+  emailVerifyExpires DateTime?
   bio           String?
   rating        Float     @default(0)
   ratingCount   Int       @default(0)
@@ -540,10 +545,4 @@ model DiscoverDismiss {
 model Promotion {
   id        String   @id @default(cuid())
   listingId String   @unique
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-
-  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
-
-  @@map("promotions")
-}
+  e

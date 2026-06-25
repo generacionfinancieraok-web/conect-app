@@ -3,7 +3,8 @@ import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { rateLimit, getIP } from '@/lib/rateLimit';
-import { sendWelcomeEmail } from '@/lib/email';
+import { sendWelcomeEmail, sendEmailVerification } from '@/lib/email';
+import crypto from 'crypto';
 
 const registerSchema = z.object({
   name: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
@@ -31,20 +32,16 @@ export async function POST(req: NextRequest) {
     }
 
     const hashedPassword = await bcrypt.hash(password, 12);
+    const emailVerifyToken = crypto.randomBytes(32).toString('hex');
+    const emailVerifyExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
     const user = await prisma.user.create({
-      data: { name, email, password: hashedPassword },
+      data: { name, email, password: hashedPassword, emailVerifyToken, emailVerifyExpires },
       select: { id: true, name: true, email: true },
     });
 
-    // Email de bienvenida (no blocking)
+    // Emails (no blocking)
     sendWelcomeEmail(email, name).catch(() => {});
+    sendEmailVerification(email, name, emailVerifyToken).catch(() => {});
 
-    return NextResponse.json({ user }, { status: 201 });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors[0].message }, { status: 400 });
-    }
-    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
-  }
-}
+    return
