@@ -104,6 +104,33 @@ export const authApi = {
       headers: { Authorization: `Bearer ${token}` },
     });
   },
+
+  async loginWithGoogle(idToken: string) {
+    return apiFetch<{ token: string; user: any }>('/api/auth/mobile/google', {
+      method: 'POST',
+      body: JSON.stringify({ idToken }),
+    });
+  },
+
+  async sendVerifyEmail() {
+    return apiFetch<{ ok: boolean; alreadyVerified?: boolean }>('/api/auth/verify-email', {
+      method: 'POST',
+    });
+  },
+
+  async sendSmsCode(phone: string) {
+    return apiFetch<{ ok: boolean; devCode?: string }>('/api/auth/send-sms', {
+      method: 'POST',
+      body: JSON.stringify({ phone }),
+    });
+  },
+
+  async verifySmsCode(code: string) {
+    return apiFetch<{ ok: boolean; alreadyVerified?: boolean }>('/api/auth/verify-sms', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    });
+  },
 };
 
 // ─── Listings ────────────────────────────────────────────────────────────────
@@ -406,7 +433,8 @@ export const discoverApi = {
       coldStartTotal: number | null;
       favoriteCount: number;
     }>('/api/discover', {
-      params: { page, ...(lat ? { lat, lng } : {})     });
+      params: { page, ...(lat ? { lat, lng } : {}) },
+    });
   },
   dismiss: (listingId: string, reason?: string) => {
     if (IS_DEMO) return Promise.resolve({ ok: true });
@@ -428,11 +456,4 @@ export const discoverApi = {
   },
 };
 
-// ─── Promote ─────────────────────────────────────────────────────────────────
-
-export const promoteApi = {
-  promote: (listingId: string) => {
-    if (IS_DEMO) return Promise.resolve({ promoted: true, expiresAt: new Date(Date.now() + 7*24*60*60*1000).toISOString() });
-    return apiFetch<{ promoted: boolean; expiresAt: string }>(`/api/listings/${listingId}/promote`, { method: 'POST' });
-  },
-};
+// ─── Promote ─────────────────────�
