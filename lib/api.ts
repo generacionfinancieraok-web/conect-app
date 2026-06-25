@@ -456,4 +456,19 @@ export const discoverApi = {
   },
 };
 
-// ─── Promote ─────────────────────�
+// ─── Promote ─────────────────────────────────────────────────────────────────
+
+export const promoteApi = {
+  promote: (listingId: string) => {
+    if (IS_DEMO) return Promise.resolve({ promoted: true, expiresAt: new Date(Date.now() + 7*24*60*60*1000).toISOString() });
+    return apiFetch<{ promoted: boolean; expiresAt: string }>(`/api/listings/${listingId}/promote`, { method: 'POST' });
+  },
+};
+  stats: (listingId: string) => {
+    if (IS_DEMO) {
+      const l = MOCK_LISTINGS.find(x => x.id === listingId);
+      return Promise.resolve({ views: l?.views ?? 0, saves: l?.saves ?? 0, offers: l?._count.offers ?? 0 });
+    }
+    return apiFetch<any>(`/api/listings/${listingId}/stats`);
+  },
+};
