@@ -171,4 +171,27 @@ export async function sendOfferResponseEmail(
   counterAmount?: number,
   currency?: string,
 ) {
-  const actionLabel = action === 'accepted' ? 'aceptó tu oferta' : action === 'rejected' ? 'rec
+  const actionLabel = action === 'accepted' ? 'aceptó tu oferta' : action === 'rejected' ? 'rechazó tu oferta' : 'hizo una contraoferta';
+  const emoji = action === 'accepted' ? '✅' : action === 'rejected' ? '❌' : '🔄';
+  const url = `${APP_URL}/offers`;
+  const counterText =
+    action === 'countered' && counterAmount && currency
+      ? `<p>Contraoferta: <strong>${new Intl.NumberFormat('es-AR', { style: 'currency', currency }).format(counterAmount)}</strong></p>`
+      : '';
+
+  return sendEmail({
+    to,
+    subject: `${emoji} ${sellerName} ${actionLabel} — Conect`,
+    html: `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px">
+        <h2 style="color:#1a1a2e">${emoji} Respuesta a tu oferta</h2>
+        <p><strong>${sellerName}</strong> ${actionLabel} por <strong>${listingTitle}</strong>.</p>
+        ${counterText}
+        <a href="${url}"
+           style="display:inline-block;margin:16px 0;padding:12px 24px;background:#6366f1;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">
+          Ver mis ofertas
+        </a>
+      </div>
+    `,
+  });
+}

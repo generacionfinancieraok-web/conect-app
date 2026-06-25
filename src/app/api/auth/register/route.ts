@@ -44,4 +44,11 @@ export async function POST(req: NextRequest) {
     sendWelcomeEmail(email, name).catch(() => {});
     sendEmailVerification(email, name, emailVerifyToken).catch(() => {});
 
-    return
+    return NextResponse.json({ user }, { status: 201 });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: error.errors[0].message }, { status: 400 });
+    }
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
+  }
+}
