@@ -545,4 +545,10 @@ model DiscoverDismiss {
 model Promotion {
   id        String   @id @default(cuid())
   listingId String   @unique
-  e
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@map("promotions")
+}
