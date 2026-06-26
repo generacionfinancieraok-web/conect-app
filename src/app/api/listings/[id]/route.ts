@@ -101,4 +101,14 @@ export async function DELETE(
     include: { images: true },
   });
 
-  i
+  if (!listing || listing.userId !== userId) {
+    return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+  }
+
+  // Eliminar imágenes de Cloudinary
+  await Promise.all(listing.images.map((img) => deleteImage(img.publicId)));
+
+  await prisma.listing.delete({ where: { id: params.id } });
+
+  return NextResponse.json({ success: true });
+}
