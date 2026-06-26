@@ -38,6 +38,8 @@ export default function ChatWindow({ conversationId, listingTitle, listingImage,
     fetch(`/api/conversations/${conversationId}/messages`)
       .then((r) => r.json())
       .then((d) => setMessages(d.messages || []));
+    // Marcar mensajes como leídos al abrir la conversación
+    fetch(`/api/conversations/${conversationId}/read`, { method: 'POST' }).catch(() => {});
   }, [conversationId]);
 
   // Socket.io

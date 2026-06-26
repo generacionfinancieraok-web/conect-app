@@ -2,17 +2,28 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { verifyMobileToken } from '@/lib/mobile-auth';
+
+async function getUserId(req: NextRequest): Promise<string | null> {
+  const auth = req.headers.get('authorization');
+  if (auth?.startsWith('Bearer ')) {
+    const payload = verifyMobileToken(auth.slice(7));
+    return payload?.userId ?? null;
+  }
+  const session = await getServerSession(authOptions);
+  return session?.user?.id ?? null;
+}
 
 // GET /api/conversations — listar conversaciones del usuario
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
+  const userId = await getUserId(req);
+  if (!userId) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
 
   const conversations = await prisma.conversation.findMany({
     where: {
-      participants: { some: { id: session.user.id } },
+      participants: { some: { id: userId } },
     },
     include: {
       listing: {
@@ -36,17 +47,31 @@ export async function GET(req: NextRequest) {
     orderBy: { updatedAt: 'desc' },
   });
 
-  return NextResponse.json({ conversations });
+  // Agregar conteo de mensajes no leídos por conversación
+  const unreadCounts = await Promise.all(
+    conversations.map((c) =>
+      prisma.message.count({
+        where: { conversationId: c.id, read: false, senderId: { not: userId } },
+      })
+    )
+  );
+
+  const withUnread = conversations.map((c, i) => ({
+    ...c,
+    unreadCount: unreadCounts[i],
+  }));
+
+  return NextResponse.json({ conversations: withUnread });
 }
 
 // POST /api/conversations — iniciar una conversación
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
+  const userId = await getUserId(req);
+  if (!userId) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
 
-  const { listingId, initialMessage } = await req.json();
+  const { listingId, initialMessage, requestMessage, asPendingRequest } = await req.json();
 
   if (!listingId) {
     return NextResponse.json({ error: 'listingId requerido' }, { status: 400 });
@@ -57,7 +82,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Publicación no encontrada' }, { status: 404 });
   }
 
-  if (listing.userId === session.user.id) {
+  if (listing.userId === userId) {
     return NextResponse.json({ error: 'No puedes contactarte contigo mismo' }, { status: 400 });
   }
 
@@ -66,7 +91,7 @@ export async function POST(req: NextRequest) {
     where: {
       listingId,
       participants: {
-        every: { id: { in: [session.user.id, listing.userId] } },
+        every: { id: { in: [userId, listing.userId] } },
       },
     },
   });
@@ -75,17 +100,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ conversation: existing });
   }
 
+  // Para servicios (Tipo 3): la conversación empieza en PENDING_REQUEST
+  const isPendingRequest = asPendingRequest === true && listing.listingType === 'SERVICE';
+  const msgBody = requestMessage || initialMessage;
+
   const conversation = await prisma.conversation.create({
     data: {
       listingId,
+      status: isPendingRequest ? 'PENDING_REQUEST' : 'ACTIVE',
+      requesterId: isPendingRequest ? userId : null,
+      requestMessage: isPendingRequest ? (msgBody ?? null) : null,
       participants: {
-        connect: [{ id: session.user.id }, { id: listing.userId }],
+        connect: [{ id: userId }, { id: listing.userId }],
       },
-      ...(initialMessage && {
+      ...(msgBody && {
         messages: {
           create: {
-            body: initialMessage,
-            senderId: session.user.id,
+            body: msgBody,
+            senderId: userId,
           },
         },
       }),
@@ -96,6 +128,25 @@ export async function POST(req: NextRequest) {
       messages: { include: { sender: { select: { id: true, name: true, image: true } } } },
     },
   });
+
+  // Notificar al prestador si es solicitud pendiente
+  if (isPendingRequest) {
+    const { sendPushNotification } = await import('@/lib/push');
+    sendPushNotification(listing.userId, {
+      title: '📩 Nueva solicitud de chat',
+      body: `Alguien quiere contactarte sobre "${listing.title}"`,
+      data: { type: 'MESSAGE_REQUEST', conversationId: conversation.id },
+    }).catch(() => {});
+    prisma.notification.create({
+      data: {
+        type: 'MESSAGE_REQUEST',
+        title: '📩 Nueva solicitud de chat',
+        body: `Alguien quiere contactarte sobre "${listing.title}"`,
+        data: JSON.stringify({ conversationId: conversation.id }),
+        userId: listing.userId,
+      },
+    }).catch(() => {});
+  }
 
   return NextResponse.json({ conversation }, { status: 201 });
 }

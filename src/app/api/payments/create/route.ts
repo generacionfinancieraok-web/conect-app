@@ -3,10 +3,21 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { createPreference } from '@/lib/mercadopago';
+import { verifyMobileToken } from '@/lib/mobile-auth';
+
+async function getUserId(req: NextRequest): Promise<string | null> {
+  const auth = req.headers.get('authorization');
+  if (auth?.startsWith('Bearer ')) {
+    const payload = verifyMobileToken(auth.slice(7));
+    return payload?.userId ?? null;
+  }
+  const session = await getServerSession(authOptions);
+  return session?.user?.id ?? null;
+}
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
+  const userId = await getUserId(req);
+  if (!userId) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
 
@@ -25,11 +36,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Esta publicación ya no está disponible' }, { status: 400 });
   }
 
-  if (listing.userId === session.user.id) {
+  if (listing.userId === userId) {
     return NextResponse.json({ error: 'No puedes comprar tu propia publicación' }, { status: 400 });
   }
 
-  const buyer = await prisma.user.findUnique({ where: { id: session.user.id } });
+  const buyer = await prisma.user.findUnique({ where: { id: userId } });
   if (!buyer?.email) {
     return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 400 });
   }
@@ -49,7 +60,7 @@ export async function POST(req: NextRequest) {
       currency: listing.currency,
       status: 'PENDING',
       mpPreferenceId: preference.id,
-      userId: session.user.id,
+      userId,
       listingId: listing.id,
     },
   });

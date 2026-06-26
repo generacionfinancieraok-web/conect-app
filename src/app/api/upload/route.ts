@@ -1,27 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import jwt from 'jsonwebtoken';
 import { authOptions } from '@/lib/auth';
 import { uploadImage } from '@/lib/cloudinary';
+import { verifyMobileToken } from '@/lib/mobile-auth';
 
 async function getUserId(req: NextRequest): Promise<string | null> {
-  // 1. NextAuth session (web app)
-  const session = await getServerSession(authOptions);
-  if (session?.user?.id) return session.user.id;
-
-  // 2. JWT Bearer token (mobile app)
   const auth = req.headers.get('authorization');
   if (auth?.startsWith('Bearer ')) {
-    try {
-      const token = auth.slice(7);
-      const payload = jwt.verify(token, process.env.NEXTAUTH_SECRET!) as any;
-      return payload.id ?? null;
-    } catch {
-      return null;
-    }
+    const payload = verifyMobileToken(auth.slice(7));
+    return payload?.userId ?? null;
   }
-
-  return null;
+  const session = await getServerSession(authOptions);
+  return session?.user?.id ?? null;
 }
 
 export async function POST(req: NextRequest) {

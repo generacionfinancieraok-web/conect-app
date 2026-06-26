@@ -2,12 +2,42 @@
 
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
-import { useState } from 'react';
-import { Search, Plus, MessageCircle, User, LogOut, Menu, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, Plus, MessageCircle, Bell, Tag, User, LogOut } from 'lucide-react';
 
 export default function Navbar() {
   const { data: session } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [unread, setUnread] = useState(0);
+  const [unreadNotifs, setUnreadNotifs] = useState(0);
+
+  // Polling cada 30 s
+  useEffect(() => {
+    if (!session?.user) return;
+
+    function fetchUnread() {
+      fetch('/api/conversations/unread')
+        .then((r) => r.json())
+        .then((d) => setUnread(d.count ?? 0))
+        .catch(() => {});
+      fetch('/api/notifications')
+        .then((r) => r.json())
+        .then((d) => setUnreadNotifs(d.unreadCount ?? 0))
+        .catch(() => {});
+    }
+
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 30_000);
+    return () => clearInterval(interval);
+  }, [session?.user]);
+
+  // Cerrar menú al hacer clic fuera
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = () => setMenuOpen(false);
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, [menuOpen]);
 
   return (
     <nav className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
@@ -17,7 +47,7 @@ export default function Navbar() {
           Conect
         </Link>
 
-        {/* Buscador */}
+        {/* Buscador desktop */}
         <form action="/search" method="GET" className="flex-1 hidden sm:flex">
           <div className="relative w-full max-w-xl">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -41,11 +71,27 @@ export default function Navbar() {
                 Publicar
               </Link>
 
-              <Link href="/inbox" className="p-2 rounded-full hover:bg-gray-100 relative">
-                <MessageCircle className="w-5 h-5 text-gray-600" />
+              {/* Notificaciones */}
+              <Link href="/notifications" className="p-2 rounded-full hover:bg-gray-100 relative">
+                <Bell className="w-5 h-5 text-gray-600" />
+                {unreadNotifs > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-brand-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+                    {unreadNotifs > 99 ? '99+' : unreadNotifs}
+                  </span>
+                )}
               </Link>
 
-              <div className="relative">
+              {/* Mensajes con badge */}
+              <Link href="/inbox" className="p-2 rounded-full hover:bg-gray-100 relative">
+                <MessageCircle className="w-5 h-5 text-gray-600" />
+                {unread > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+                    {unread > 99 ? '99+' : unread}
+                  </span>
+                )}
+              </Link>
+
+              <div className="relative" onClick={(e) => e.stopPropagation()}>
                 <button
                   onClick={() => setMenuOpen(!menuOpen)}
                   className="flex items-center gap-2 p-1 rounded-full hover:bg-gray-100"
@@ -71,6 +117,20 @@ export default function Navbar() {
                       onClick={() => setMenuOpen(false)}
                     >
                       <User className="w-4 h-4" /> Mi perfil
+                    </Link>
+                    <Link
+                      href="/offers"
+                      className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      <Tag className="w-4 h-4" /> Mis ofertas
+                    </Link>
+                    <Link
+                      href="/notifications"
+                      className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      <Bell className="w-4 h-4" /> Notificaciones
                     </Link>
                     <Link
                       href="/listing/new"

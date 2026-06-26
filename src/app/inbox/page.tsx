@@ -10,7 +10,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
 async function getConversations(userId: string) {
-  return prisma.conversation.findMany({
+  const conversations = await prisma.conversation.findMany({
     where: { participants: { some: { id: userId } } },
     include: {
       listing: {
@@ -28,6 +28,16 @@ async function getConversations(userId: string) {
     },
     orderBy: { updatedAt: 'desc' },
   });
+
+  const unreadCounts = await Promise.all(
+    conversations.map((c) =>
+      prisma.message.count({
+        where: { conversationId: c.id, read: false, senderId: { not: userId } },
+      })
+    )
+  );
+
+  return conversations.map((c, i) => ({ ...c, unreadCount: unreadCounts[i] }));
 }
 
 export default async function InboxPage() {
@@ -58,7 +68,7 @@ export default async function InboxPage() {
               <Link
                 key={conv.id}
                 href={`/inbox/${conv.id}`}
-                className="flex items-center gap-3 p-4 bg-white rounded-xl border border-gray-100 hover:border-brand-200 hover:shadow-sm transition-all"
+                className={`flex items-center gap-3 p-4 bg-white rounded-xl border hover:border-brand-200 hover:shadow-sm transition-all ${conv.unreadCount > 0 ? 'border-brand-300 bg-brand-50/30' : 'border-gray-100'}`}
               >
                 {/* Foto del listing */}
                 <div className="relative w-14 h-14 shrink-0">
@@ -85,17 +95,24 @@ export default async function InboxPage() {
                 </div>
 
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <p className="font-semibold text-gray-900 truncate">{other?.name}</p>
-                    {lastMsg && (
-                      <span className="text-xs text-gray-400 shrink-0">
-                        {formatDistanceToNow(new Date(lastMsg.createdAt), { addSuffix: true, locale: es })}
-                      </span>
-                    )}
+                  <div className="flex items-center justify-between gap-2">
+                    <p className={`font-semibold truncate ${conv.unreadCount > 0 ? 'text-gray-900' : 'text-gray-700'}`}>{other?.name}</p>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {lastMsg && (
+                        <span className="text-xs text-gray-400">
+                          {formatDistanceToNow(new Date(lastMsg.createdAt), { addSuffix: true, locale: es })}
+                        </span>
+                      )}
+                      {conv.unreadCount > 0 && (
+                        <span className="min-w-[20px] h-5 bg-brand-600 text-white text-xs font-bold rounded-full flex items-center justify-center px-1.5">
+                          {conv.unreadCount > 99 ? '99+' : conv.unreadCount}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <p className="text-xs text-gray-500 truncate mt-0.5">{conv.listing.title}</p>
                   {lastMsg && (
-                    <p className="text-sm text-gray-500 truncate mt-0.5">
+                    <p className={`text-sm truncate mt-0.5 ${conv.unreadCount > 0 && lastMsg.sender.id !== session.user?.id ? 'text-gray-800 font-medium' : 'text-gray-500'}`}>
                       {lastMsg.sender.id === session.user?.id ? 'Vos: ' : ''}
                       {lastMsg.body}
                     </p>

@@ -4,9 +4,10 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Star, MapPin, Calendar, Package } from 'lucide-react';
+import { Star, MapPin, Calendar, Package, Clock, TrendingUp, ShoppingBag } from 'lucide-react';
 import { prisma } from '@/lib/prisma';
 import ListingCard from '@/components/ListingCard';
+import { getSellerBadge, getBuyerLabel } from '@/lib/reputation';
 
 interface Props {
   params: { id: string };
@@ -44,6 +45,16 @@ export default async function ProfilePage({ params }: Props) {
   const activeListings = user.listings.filter((l) => l.status === 'ACTIVE');
   const soldListings = user.listings.filter((l) => l.status === 'SOLD');
 
+  const sellerBadgeRaw = getSellerBadge(user.concretionRate ?? 0, user.completedSales ?? 0);
+  const sellerBadge = sellerBadgeRaw
+    ? {
+        label: sellerBadgeRaw.text,
+        emoji: sellerBadgeRaw.color === 'green' ? '⭐' : sellerBadgeRaw.color === 'yellow' ? '🟡' : sellerBadgeRaw.color === 'red' ? '🔴' : '⚪',
+        bgClass: sellerBadgeRaw.color === 'green' ? 'bg-green-100 text-green-700' : sellerBadgeRaw.color === 'yellow' ? 'bg-amber-100 text-amber-700' : sellerBadgeRaw.color === 'red' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600',
+      }
+    : null;
+  const buyerLabel = getBuyerLabel(user.buyerLevel ?? 0, user.completedPurchases ?? 0);
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
       {/* Perfil header */}
@@ -63,14 +74,21 @@ export default async function ProfilePage({ params }: Props) {
         )}
 
         <div className="flex-1">
-          <h1 className="text-2xl font-bold text-gray-900">{user.name}</h1>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-2xl font-bold text-gray-900">{user.name}</h1>
+            {sellerBadge && (
+              <span className={`text-sm font-medium px-2.5 py-0.5 rounded-full ${sellerBadge.bgClass}`}>
+                {sellerBadge.emoji} {sellerBadge.label}
+              </span>
+            )}
+          </div>
 
-          <div className="flex flex-wrap gap-4 mt-2 text-sm text-gray-500">
+          <div className="flex flex-wrap gap-3 mt-2 text-sm text-gray-500">
             {user.ratingCount > 0 && (
               <span className="flex items-center gap-1">
                 <Star className="w-4 h-4 text-yellow-400 fill-current" />
                 <strong className="text-gray-800">{user.rating.toFixed(1)}</strong>
-                <span>({user.ratingCount} reseñas)</span>
+                <span>({user.ratingCount})</span>
               </span>
             )}
             <span className="flex items-center gap-1">
@@ -88,13 +106,53 @@ export default async function ProfilePage({ params }: Props) {
           )}
         </div>
 
-        <div className="shrink-0">
-          <div className="text-center bg-gray-50 rounded-xl p-4 min-w-[100px]">
-            <p className="text-3xl font-bold text-green-600">{soldListings.length}</p>
-            <p className="text-xs text-gray-500 mt-1">ventas</p>
-          </div>
+        {/* Stats */}
+        <div className="shrink-0 flex gap-2">
+          {(user.completedSales ?? 0) > 0 && (
+            <div className="text-center bg-gray-50 rounded-xl p-3 min-w-[80px]">
+              <p className="text-2xl font-bold text-green-600">{user.completedSales}</p>
+              <p className="text-xs text-gray-500 mt-1">ventas</p>
+            </div>
+          )}
+          {(user.concretionRate ?? 0) > 0 && (
+            <div className="text-center bg-gray-50 rounded-xl p-3 min-w-[80px]">
+              <p className="text-2xl font-bold text-blue-600">{Math.round((user.concretionRate ?? 0) * 100)}%</p>
+              <p className="text-xs text-gray-500 mt-1">concreción</p>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Reputación desglosada */}
+      {((user.completedSales ?? 0) > 0 || (user.avgResponseMinutes ?? 0) > 0) && (
+        <div className="card p-4 mb-6">
+          <h2 className="text-sm font-semibold text-gray-700 mb-3">Reputación como vendedor</h2>
+          <div className="flex flex-wrap gap-4 text-sm">
+            {(user.completedSales ?? 0) > 0 && (
+              <div className="flex items-center gap-2 text-gray-600">
+                <ShoppingBag className="w-4 h-4 text-green-500" />
+                <span><strong>{user.completedSales}</strong> ventas concretadas</span>
+              </div>
+            )}
+            {(user.concretionRate ?? 0) > 0 && (
+              <div className="flex items-center gap-2 text-gray-600">
+                <TrendingUp className="w-4 h-4 text-blue-500" />
+                <span><strong>{Math.round((user.concretionRate ?? 0) * 100)}%</strong> tasa de concreción</span>
+              </div>
+            )}
+            {(user.avgResponseMinutes ?? 0) > 0 && (
+              <div className="flex items-center gap-2 text-gray-600">
+                <Clock className="w-4 h-4 text-purple-500" />
+                <span>Responde en ~<strong>
+                  {(user.avgResponseMinutes ?? 0) < 60
+                    ? `${user.avgResponseMinutes}min`
+                    : `${Math.round((user.avgResponseMinutes ?? 0) / 60)}h`}
+                </strong></span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Publicaciones activas */}
       {activeListings.length > 0 && (
