@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Upload, X, MapPin } from 'lucide-react';
+import { Upload, X, MapPin, ShieldAlert } from 'lucide-react';
 import { PROVINCES } from '@/lib/utils';
 
 interface Category {
@@ -29,6 +29,7 @@ export default function NewListingPage() {
   const [images, setImages] = useState<{ preview: string; base64: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [moderationError, setModerationError] = useState(false);
 
   const [form, setForm] = useState({
     title: '',
@@ -94,7 +95,11 @@ export default function NewListingPage() {
     setLoading(false);
 
     if (!res.ok) {
-      setError(data.error || 'Error al publicar');
+      if (res.status === 422 && data.moderation) {
+        setModerationError(true);
+      } else {
+        setError(data.error || 'Error al publicar');
+      }
     } else {
       router.push(`/listing/${data.listing.id}`);
     }
@@ -102,6 +107,30 @@ export default function NewListingPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
+
+      {/* Modal: rechazo por moderación */}
+      {moderationError && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl text-center">
+            <div className="flex justify-center mb-4">
+              <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center">
+                <ShieldAlert className="w-7 h-7 text-red-500" />
+              </div>
+            </div>
+            <h2 className="text-lg font-bold text-gray-900 mb-2">Imagen no permitida</h2>
+            <p className="text-sm text-gray-500 mb-5">
+              Una o más imágenes fueron rechazadas porque contienen contenido inapropiado o explícito.
+              Por favor, reemplazá las fotos y volvé a intentarlo.
+            </p>
+            <button
+              onClick={() => { setModerationError(false); setImages([]); }}
+              className="w-full btn-primary"
+            >
+              Entendido, cambiar fotos
+            </button>
+          </div>
+        </div>
+      )}
       <h1 className="text-2xl font-bold mb-6">Publicar artículo</h1>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -258,48 +287,4 @@ export default function NewListingPage() {
                 required
               >
                 <option value="">Seleccioná</option>
-                {PROVINCES.map((p) => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Ciudad <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={form.city}
-                onChange={(e) => update('city', e.target.value)}
-                className="input"
-                placeholder="Tu ciudad"
-                required
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Barrio / Dirección (opcional)
-            </label>
-            <input
-              type="text"
-              value={form.address}
-              onChange={(e) => update('address', e.target.value)}
-              className="input"
-              placeholder="Palermo, Villa Crespo..."
-            />
-          </div>
-        </div>
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="btn-primary w-full py-3 text-base"
-        >
-          {loading ? 'Publicando...' : 'Publicar ahora'}
-        </button>
-      </form>
-    </div>
-  );
-}
+                {PROVINCES.map((p) => 

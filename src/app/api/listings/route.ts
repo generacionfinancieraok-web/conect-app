@@ -4,7 +4,7 @@ import { getServerSession } from 'next-auth';
 import { z } from 'zod';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { uploadImage } from '@/lib/cloudinary';
+import { uploadImage, ModerationRejectedError } from '@/lib/cloudinary';
 import { verifyMobileToken } from '@/lib/mobile-auth';
 import { Condition, ListingType, ServiceUnit, ServiceModality } from '@prisma/client';
 
@@ -185,7 +185,5 @@ export async function POST(req: NextRequest) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.errors[0].message }, { status: 400 });
     }
-    console.error('[POST /api/listings]', error);
-    return NextResponse.json({ error: 'Error al crear la publicación' }, { status: 500 });
-  }
-}
+    if (error instanceof ModerationRejectedError) {
+   
