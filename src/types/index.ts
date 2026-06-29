@@ -16,6 +16,7 @@ export type ListingCardData = {
   province: string;
   condition: Condition;
   status: ListingStatus;
+  listingType?: string;
   promoted?: boolean;
   createdAt: Date;
   images: { url: string }[];
@@ -53,6 +54,4 @@ export interface SearchFilters {
   lat?: number;
   lng?: number;
   radius?: number; // km
-  page?: number;
-  limit?: number;
-}
+  page?: number

@@ -53,6 +53,7 @@ export default function SearchContent() {
   const category = searchParams.get('category') || '';
   const province = searchParams.get('province') || '';
   const condition = searchParams.get('condition') || '';
+  const listingType = searchParams.get('listingType') || '';
   const sortBy = searchParams.get('sortBy') || 'newest';
   const minPrice = searchParams.get('minPrice') || '';
   const maxPrice = searchParams.get('maxPrice') || '';
@@ -68,6 +69,7 @@ export default function SearchContent() {
     if (category) params.set('category', category);
     if (province) params.set('province', province);
     if (condition) params.set('condition', condition);
+    if (listingType) params.set('listingType', listingType);
     if (sortBy) params.set('sortBy', sortBy);
     if (minPrice) params.set('minPrice', minPrice);
     if (maxPrice) params.set('maxPrice', maxPrice);
@@ -82,7 +84,7 @@ export default function SearchContent() {
     setListings(data.listings || []);
     setTotal(data.pagination?.total || 0);
     setLoading(false);
-  }, [q, category, province, condition, sortBy, minPrice, maxPrice, geoCoords, geoRadius]);
+  }, [q, category, province, condition, listingType, sortBy, minPrice, maxPrice, geoCoords, geoRadius]);
 
   useEffect(() => { fetchResults(); }, [fetchResults]);
 
@@ -98,7 +100,7 @@ export default function SearchContent() {
     router.push(`/search?${p}`);
   }
 
-  const hasActiveFilters = !!(category || province || condition || minPrice || maxPrice || geoCoords);
+  const hasActiveFilters = !!(category || province || condition || listingType || minPrice || maxPrice || geoCoords);
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
@@ -172,6 +174,16 @@ export default function SearchContent() {
               </div>
 
               <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">Tipo</label>
+                <select value={listingType} onChange={(e) => setParam('listingType', e.target.value)} className="input text-sm">
+                  <option value="">Todos</option>
+                  <option value="ITEM_WITH_PRICE">Artículos con precio</option>
+                  <option value="ITEM_NO_PRICE">Artículos sin precio</option>
+                  <option value="SERVICE">Servicios</option>
+                </select>
+              </div>
+
+              <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1.5">Estado</label>
                 <select value={condition} onChange={(e) => setParam('condition', e.target.value)} className="input text-sm">
                   {CONDITIONS.map((c) => (
@@ -234,74 +246,4 @@ export default function SearchContent() {
                     disabled={geoLoading}
                     className="w-full flex items-center justify-center gap-1.5 text-xs btn-secondary py-1.5 disabled:opacity-60"
                   >
-                    <LocateFixed className="w-3.5 h-3.5" />
-                    {geoLoading ? 'Obteniendo...' : 'Usar mi ubicación'}
-                  </button>
-                )}
-                {geoError && <p className="text-xs text-red-500 mt-1">{geoError}</p>}
-              </div>
-            </div>
-          </aside>
-        )}
-
-        {/* Resultados */}
-        <div className="flex-1">
-          {/* Chips de categorías */}
-          <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
-            <button
-              onClick={() => setParam('category', '')}
-              className={`shrink-0 text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
-                !category ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:border-brand-300'
-              }`}
-            >
-              Todos
-            </button>
-            {categories.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => setParam('category', c.slug)}
-                className={`shrink-0 text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
-                  category === c.slug ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:border-brand-300'
-                }`}
-              >
-                {c.icon} {c.name}
-              </button>
-            ))}
-          </div>
-
-          {loading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="card animate-pulse">
-                  <div className="aspect-[4/3] bg-gray-200" />
-                  <div className="p-3 space-y-2">
-                    <div className="h-5 bg-gray-200 rounded w-2/3" />
-                    <div className="h-4 bg-gray-100 rounded w-full" />
-                    <div className="h-3 bg-gray-100 rounded w-1/2" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : listings.length === 0 ? (
-            <div className="text-center py-16 text-gray-400">
-              <p className="text-4xl mb-3">🔍</p>
-              <p className="font-medium">No encontramos resultados</p>
-              <p className="text-sm mt-1">Probá con otros términos o filtros</p>
-              {hasActiveFilters && (
-                <button onClick={clearFilters} className="mt-4 btn-secondary text-sm">
-                  Limpiar filtros
-                </button>
-              )}
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-              {listings.map((l) => (
-                <ListingCard key={l.id} listing={l} />
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
+                 

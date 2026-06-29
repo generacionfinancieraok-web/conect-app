@@ -41,6 +41,7 @@ export default function NewListingPage() {
     city: '',
     province: '',
     address: '',
+    listingType: 'ITEM_WITH_PRICE',
   });
 
   useEffect(() => {
@@ -77,6 +78,7 @@ export default function NewListingPage() {
     e.preventDefault();
     if (images.length === 0) { setError('Agregá al menos una foto'); return; }
     if (!form.categoryId) { setError('Seleccioná una categoría'); return; }
+    if (form.listingType === 'ITEM_WITH_PRICE' && !form.price) { setError('Ingresá un precio'); return; }
 
     setLoading(true);
     setError('');
@@ -86,7 +88,7 @@ export default function NewListingPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ...form,
-        price: parseFloat(form.price),
+        price: form.listingType === 'ITEM_WITH_PRICE' ? parseFloat(form.price) : 0,
         images: images.map((i) => i.base64),
       }),
     });
@@ -131,7 +133,7 @@ export default function NewListingPage() {
           </div>
         </div>
       )}
-      <h1 className="text-2xl font-bold mb-6">Publicar artículo</h1>
+      <h1 className="text-2xl font-bold mb-6">Nueva publicación</h1>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {error && (
@@ -139,6 +141,32 @@ export default function NewListingPage() {
             {error}
           </div>
         )}
+
+        {/* Tipo de publicación */}
+        <div className="card p-5">
+          <h2 className="font-semibold mb-3">¿Qué querés publicar?</h2>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { value: 'ITEM_WITH_PRICE', label: 'Artículo con precio', icon: '🏷️' },
+              { value: 'ITEM_NO_PRICE',   label: 'Artículo sin precio', icon: '📦' },
+              { value: 'SERVICE',         label: 'Servicio',            icon: '🔧' },
+            ].map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => update('listingType', opt.value)}
+                className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 text-sm font-medium transition-colors ${
+                  form.listingType === opt.value
+                    ? 'border-brand-500 bg-brand-50 text-brand-700'
+                    : 'border-gray-200 text-gray-600 hover:border-brand-300'
+                }`}
+              >
+                <span className="text-2xl">{opt.icon}</span>
+                <span className="text-center leading-tight">{opt.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
 
         {/* Fotos */}
         <div className="card p-5">
@@ -208,30 +236,31 @@ export default function NewListingPage() {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Precio <span className="text-red-500">*</span>
-              </label>
-              <div className="flex">
-                <select
-                  value={form.currency}
-                  onChange={(e) => update('currency', e.target.value)}
-                  className="input rounded-r-none w-20 border-r-0"
-                >
-                  <option value="ARS">ARS $</option>
-                  <option value="USD">USD $</option>
-                </select>
-                <input
-                  type="number"
-                  value={form.price}
-                  onChange={(e) => update('price', e.target.value)}
-                  className="input rounded-l-none flex-1"
-                  placeholder="0"
-                  min="0"
-                  required
-                />
+            {form.listingType === 'ITEM_WITH_PRICE' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Precio <span className="text-red-500">*</span>
+                </label>
+                <div className="flex">
+                  <select
+                    value={form.currency}
+                    onChange={(e) => update('currency', e.target.value)}
+                    className="input rounded-r-none w-20 border-r-0"
+                  >
+                    <option value="ARS">ARS $</option>
+                    <option value="USD">USD $</option>
+                  </select>
+                  <input
+                    type="number"
+                    value={form.price}
+                    onChange={(e) => update('price', e.target.value)}
+                    className="input rounded-l-none flex-1"
+                    placeholder="0"
+                    min="0"
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -328,11 +357,6 @@ export default function NewListingPage() {
         >
           {loading ? 'Publicando...' : 'Publicar ahora'}
         </button>
-      </form>
-    </div>
-  );
-}
-button>
       </form>
     </div>
   );

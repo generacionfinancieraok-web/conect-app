@@ -279,6 +279,31 @@ export default function ListingDetailPage() {
           <div className="card p-5 mt-5">
             <h2 className="font-semibold mb-3">Descripción</h2>
             <p className="text-gray-700 text-sm whitespace-pre-wrap leading-relaxed">{listing.description}</p>
+
+            {/* Campos de servicio */}
+            {listing.listingType === 'SERVICE' && (listing.serviceUnit || listing.serviceModality || listing.serviceCoverage) && (
+              <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
+                <h3 className="text-sm font-semibold text-gray-700 mb-2">Detalles del servicio</h3>
+                {listing.serviceUnit && (
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <span className="font-medium">Unidad:</span>
+                    <span>{listing.serviceUnit === 'HOUR' ? 'Por hora' : listing.serviceUnit === 'DAY' ? 'Por día' : listing.serviceUnit === 'PROJECT' ? 'Por proyecto' : listing.serviceUnit}</span>
+                  </div>
+                )}
+                {listing.serviceModality && (
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <span className="font-medium">Modalidad:</span>
+                    <span>{listing.serviceModality === 'REMOTE' ? 'Remoto' : listing.serviceModality === 'ON_SITE' ? 'Presencial' : 'Remoto y presencial'}</span>
+                  </div>
+                )}
+                {listing.serviceCoverage && (
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <span className="font-medium">Cobertura:</span>
+                    <span>{listing.serviceCoverage}</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -286,9 +311,15 @@ export default function ListingDetailPage() {
           <div className="card p-5">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <p className="text-3xl font-bold text-gray-900">
-                  {formatPrice(listing.price, listing.currency)}
-                </p>
+                {listing.listingType === 'SERVICE' ? (
+                  <p className="text-2xl font-bold text-brand-600">🔧 Servicio</p>
+                ) : listing.listingType === 'ITEM_NO_PRICE' || listing.price === 0 ? (
+                  <p className="text-2xl font-bold text-gray-500">Consultar precio</p>
+                ) : (
+                  <p className="text-3xl font-bold text-gray-900">
+                    {formatPrice(listing.price, listing.currency)}
+                  </p>
+                )}
                 <h1 className="text-lg font-semibold text-gray-800 mt-1">{listing.title}</h1>
               </div>
               <button
@@ -334,12 +365,14 @@ export default function ListingDetailPage() {
                   <MessageCircle className="w-4 h-4" />
                   {chatLoading ? 'Abriendo chat...' : 'Contactar vendedor'}
                 </button>
-                <button
-                  onClick={() => { setShowOfferModal(true); setOfferSuccess(false); setOfferError(''); }}
-                  className="w-full flex items-center justify-center gap-2 text-sm font-medium px-4 py-2.5 rounded-lg border border-brand-300 bg-brand-50 text-brand-700 hover:bg-brand-100 transition-colors"
-                >
-                  <Tag className="w-4 h-4" /> Hacer una oferta
-                </button>
+                {listing.listingType === 'ITEM_WITH_PRICE' && listing.price > 0 && (
+                  <button
+                    onClick={() => { setShowOfferModal(true); setOfferSuccess(false); setOfferError(''); }}
+                    className="w-full flex items-center justify-center gap-2 text-sm font-medium px-4 py-2.5 rounded-lg border border-brand-300 bg-brand-50 text-brand-700 hover:bg-brand-100 transition-colors"
+                  >
+                    <Tag className="w-4 h-4" /> Hacer una oferta
+                  </button>
+                )}
                 <button
                   onClick={handleBuy}
                   disabled={buyLoading}

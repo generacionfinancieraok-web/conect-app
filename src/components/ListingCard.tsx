@@ -61,16 +61,13 @@ export default function ListingCard({ listing }: Props) {
 
       {/* Info */}
       <div className="p-3">
-        <p className="font-bold text-gray-900 text-lg leading-tight">
-          {formatPrice(listing.price, listing.currency)}
-        </p>
-        <p className="text-sm text-gray-700 mt-0.5 line-clamp-2">{listing.title}</p>
-        <div className="flex items-center gap-1 mt-2 text-xs text-gray-400">
-          <MapPin className="w-3 h-3 shrink-0" />
-          <span className="truncate">{listing.city}, {listing.province}</span>
-        </div>
-        <p className="text-xs text-gray-400 mt-1">{timeAgo}</p>
-      </div>
-    </Link>
-  );
-}
+        {listing.listingType === 'SERVICE' ? (
+          <p className="font-bold text-brand-600 text-lg leading-tight">🔧 Servicio</p>
+        ) : listing.listingType === 'ITEM_NO_PRICE' || listing.price === 0 ? (
+          <p className="font-bold text-gray-500 text-lg leading-tight">Consultar precio</p>
+        ) : (
+          <p className="font-bold text-gray-900 text-lg leading-tight">
+            {formatPrice(listing.price, listing.currency)}
+          </p>
+        )}
+        <p className="text-sm text-gray-700 mt-0.5 line-clamp-

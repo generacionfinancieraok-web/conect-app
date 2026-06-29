@@ -45,6 +45,7 @@ export default function EditListingContent() {
     city: '',
     province: '',
     address: '',
+    listingType: 'ITEM_WITH_PRICE',
   });
 
   useEffect(() => {
@@ -72,6 +73,7 @@ export default function EditListingContent() {
         city: l.city ?? '',
         province: l.province ?? '',
         address: l.address ?? '',
+        listingType: l.listingType ?? 'ITEM_WITH_PRICE',
       });
       setCategories(catData.categories ?? []);
       setLoadingData(false);
@@ -97,7 +99,7 @@ export default function EditListingContent() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ...form,
-        price: parseFloat(form.price),
+        price: form.listingType === 'ITEM_WITH_PRICE' ? parseFloat(form.price) || 0 : 0,
       }),
     });
 
@@ -152,6 +154,32 @@ export default function EditListingContent() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Tipo de publicación */}
+        <div className="card p-5">
+          <h2 className="font-semibold mb-3">Tipo de publicación</h2>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { value: 'ITEM_WITH_PRICE', label: 'Artículo con precio', icon: '🏷️' },
+              { value: 'ITEM_NO_PRICE',   label: 'Artículo sin precio', icon: '📦' },
+              { value: 'SERVICE',         label: 'Servicio',            icon: '🔧' },
+            ].map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => update('listingType', opt.value)}
+                className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 text-sm font-medium transition-colors ${
+                  form.listingType === opt.value
+                    ? 'border-brand-500 bg-brand-50 text-brand-700'
+                    : 'border-gray-200 text-gray-600 hover:border-brand-300'
+                }`}
+              >
+                <span className="text-2xl">{opt.icon}</span>
+                <span className="text-center leading-tight">{opt.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Título y precio */}
         <div className="card p-5 space-y-4">
           <h2 className="font-semibold">Información básica</h2>
@@ -183,28 +211,29 @@ export default function EditListingContent() {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Precio <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                value={form.price}
-                onChange={(e) => update('price', e.target.value)}
-                className="input"
-                min="0"
-                required
-              />
+          {form.listingType === 'ITEM_WITH_PRICE' && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Precio <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  value={form.price}
+                  onChange={(e) => update('price', e.target.value)}
+                  className="input"
+                  min="0"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Moneda</label>
+                <select value={form.currency} onChange={(e) => update('currency', e.target.value)} className="input">
+                  <option value="ARS">ARS $</option>
+                  <option value="USD">USD $</option>
+                </select>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Moneda</label>
-              <select value={form.currency} onChange={(e) => update('currency', e.target.value)} className="input">
-                <option value="ARS">ARS $</option>
-                <option value="USD">USD $</option>
-              </select>
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Categoría y estado */}

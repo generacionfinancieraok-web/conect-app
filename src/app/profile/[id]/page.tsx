@@ -12,6 +12,7 @@ import ListingCard from '@/components/ListingCard';
 import { getSellerBadge, getBuyerLabel } from '@/lib/reputation';
 import FollowButton from './FollowButton';
 import ReviewForm from './ReviewForm';
+import EditProfileModal from './EditProfileModal';
 
 
 interface Props {
@@ -140,7 +141,9 @@ export default async function ProfilePage({ params }: Props) {
 
         {/* Botón Seguir + Stats */}
         <div className="shrink-0 flex flex-col items-end gap-3">
-          {!isOwnProfile && (
+          {isOwnProfile ? (
+            <EditProfileModal initialName={user.name ?? ''} initialBio={user.bio ?? null} />
+          ) : (
             <FollowButton
               profileId={params.id}
               initialFollowing={isFollowing}
