@@ -186,4 +186,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.errors[0].message }, { status: 400 });
     }
     if (error instanceof ModerationRejectedError) {
-   
+         return NextResponse.json({ error: error.message, moderation: true }, { status: 422 });
+    }
+    console.error('[POST /api/listings]', error);
+    return NextResponse.json({ error: 'Error al crear la publicación' }, { status: 500 });
+  }
+}
+}

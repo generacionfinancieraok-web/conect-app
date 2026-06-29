@@ -287,4 +287,53 @@ export default function NewListingPage() {
                 required
               >
                 <option value="">Seleccioná</option>
-                {PROVINCES.map((p) => 
+                {PROVINCES.map((p) => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Ciudad <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={form.city}
+                onChange={(e) => update('city', e.target.value)}
+                className="input"
+                placeholder="Tu ciudad"
+                required
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Barrio / Dirección (opcional)
+            </label>
+            <input
+              type="text"
+              value={form.address}
+              onChange={(e) => update('address', e.target.value)}
+              className="input"
+              placeholder="Palermo, Villa Crespo..."
+            />
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="btn-primary w-full py-3 text-base"
+        >
+          {loading ? 'Publicando...' : 'Publicar ahora'}
+        </button>
+      </form>
+    </div>
+  );
+}
+button>
+      </form>
+    </div>
+  );
+}
