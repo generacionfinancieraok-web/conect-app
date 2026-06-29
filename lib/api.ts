@@ -2,7 +2,7 @@ import * as SecureStore from 'expo-secure-store';
 import * as FileSystem from 'expo-file-system';
 import {
   IS_DEMO, DEMO_USER, MOCK_CATEGORIES, MOCK_LISTINGS, MOCK_REVIEWS,
-  MOCK_CONVERSATIONS, MOCK_FAVORITES,
+  MOCK_CONVERSATIONS, MOCK_FAVORITES, MOCK_USERS,
   getMockListings, getMockUserProfile,
 } from './mockData';
 
@@ -169,6 +169,14 @@ export const listingsApi = {
   delete: (id: string) => {
     if (IS_DEMO) return Promise.resolve({});
     return apiFetch(`/api/listings/${id}`, { method: 'DELETE' });
+  },
+
+  stats: (listingId: string) => {
+    if (IS_DEMO) {
+      const l = MOCK_LISTINGS.find(x => x.id === listingId);
+      return Promise.resolve({ views: l?.views ?? 0, saves: l?.saves ?? 0, offers: l?._count?.offers ?? 0 });
+    }
+    return apiFetch<any>(`/api/listings/${listingId}/stats`);
   },
 };
 
@@ -464,11 +472,4 @@ export const promoteApi = {
     return apiFetch<{ promoted: boolean; expiresAt: string }>(`/api/listings/${listingId}/promote`, { method: 'POST' });
   },
 };
-  stats: (listingId: string) => {
-    if (IS_DEMO) {
-      const l = MOCK_LISTINGS.find(x => x.id === listingId);
-      return Promise.resolve({ views: l?.views ?? 0, saves: l?.saves ?? 0, offers: l?._count.offers ?? 0 });
-    }
-    return apiFetch<any>(`/api/listings/${listingId}/stats`);
-  },
-};
+

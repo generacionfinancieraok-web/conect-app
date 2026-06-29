@@ -6,29 +6,46 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { categoriesApi, listingsApi, uploadImage } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
-import { PROVINCES, CONDITIONS } from '@/lib/utils';
+import { CONDITIONS } from '@/lib/utils';
 
-type Step = 'photos' | 'details' | 'location';
+type Step = 'type' | 'photos' | 'details' | 'location';
+
+const PROVINCES = [
+  'Buenos Aires', 'CABA', 'Catamarca', 'Chaco', 'Chubut', 'Córdoba',
+  'Corrientes', 'Entre Ríos', 'Formosa', 'Jujuy', 'La Pampa', 'La Rioja',
+  'Mendoza', 'Misiones', 'Neuquén', 'Río Negro', 'Salta', 'San Juan',
+  'San Luis', 'Santa Cruz', 'Santa Fe', 'Santiago del Estero',
+  'Tierra del Fuego', 'Tucumán',
+];
+
+// Barrios de CABA para selector cuando la provincia es CABA
+const CABA_BARRIOS = [
+  'Agronomía', 'Almagro', 'Balvanera', 'Barracas', 'Belgrano', 'Boedo',
+  'Caballito', 'Chacarita', 'Coghlan', 'Colegiales', 'Constitución',
+  'Flores', 'Floresta', 'La Boca', 'La Paternal', 'Liniers', 'Mataderos',
+  'Monte Castro', 'Monserrat', 'Nueva Pompeya', 'Núñez', 'Palermo',
+  'Parque Avellaneda', 'Parque Chacabuco', 'Parque Chas', 'Parque Patricios',
+  'Puerto Madero', 'Recoleta', 'Retiro', 'Saavedra', 'San Cristóbal',
+  'San Nicolás', 'San Telmo', 'Vélez Sársfield', 'Versalles', 'Villa Crespo',
+  'Villa del Parque', 'Villa Devoto', 'Villa Gral. Mitre', 'Villa Lugano',
+  'Villa Luro', 'Villa Ortúzar', 'Villa Pueyrredón', 'Villa Real',
+  'Villa Riachuelo', 'Villa Santa Rita', 'Villa Soldati', 'Villa Urquiza',
+];
 
 export default function SellScreen() {
   const { isAuthenticated } = useAuthStore();
-  const [step, setStep] = useState<Step>('photos');
+  const [step, setStep] = useState<Step>('type');
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-
   const [images, setImages] = useState<{ uri: string }[]>([]);
   const [form, setForm] = useState({
-    title: '',
-    description: '',
-    price: '',
-    currency: 'ARS',
-    condition: 'GOOD',
-    categoryId: '',
-    city: '',
-    province: '',
+    title: '', description: '', price: '', currency: 'ARS',
+    condition: 'GOOD', categoryId: '', city: '', province: '',
+    listingType: 'ITEM_WITH_PRICE',
   });
 
   useEffect(() => {
@@ -37,17 +54,25 @@ export default function SellScreen() {
 
   if (!isAuthenticated) {
     return (
-      <SafeAreaView className="flex-1 bg-white items-center justify-center px-6">
-        <Ionicons name="camera-outline" size={56} color="#d1d5db" />
-        <Text className="text-xl font-bold text-gray-800 mt-4">Publicá gratis</Text>
-        <Text className="text-gray-400 text-center mt-2 mb-6">
-          Ingresá a tu cuenta para publicar tus artículos
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#0F172A', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 }}>
+        <View style={{
+          width: 80, height: 80, borderRadius: 20, backgroundColor: '#1E293B',
+          alignItems: 'center', justifyContent: 'center', marginBottom: 16,
+        }}>
+          <Ionicons name="camera-outline" size={36} color="#6C3DE0" />
+        </View>
+        <Text style={{ fontSize: 22, fontWeight: '800', color: '#E2E8F0' }}>Publicá gratis</Text>
+        <Text style={{ color: '#64748B', textAlign: 'center', marginTop: 8, marginBottom: 24 }}>
+          Ingresá para publicar tus artículos
         </Text>
-        <TouchableOpacity
-          onPress={() => router.push('/(auth)/login')}
-          className="bg-blue-600 rounded-xl py-3.5 px-8"
-        >
-          <Text className="text-white font-bold">Ingresar</Text>
+        <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
+          <LinearGradient
+            colors={['#6C3DE0', '#EC4899']}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+            style={{ borderRadius: 14, paddingVertical: 14, paddingHorizontal: 32 }}
+          >
+            <Text style={{ color: 'white', fontWeight: '700', fontSize: 16 }}>Ingresar</Text>
+          </LinearGradient>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -59,43 +84,33 @@ export default function SellScreen() {
 
   async function pickImages() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permiso requerido', 'Necesitamos acceso a tu galería');
-      return;
-    }
+    if (status !== 'granted') { Alert.alert('Permiso requerido', 'Necesitamos acceso a tu galería'); return; }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsMultipleSelection: true,
-      quality: 0.8,
+      allowsMultipleSelection: true, quality: 0.8,
       selectionLimit: 8 - images.length,
     });
     if (!result.canceled) {
-      setImages((prev) => [
-        ...prev,
-        ...result.assets.map((a) => ({ uri: a.uri })),
-      ].slice(0, 8));
+      setImages((prev) => [...prev, ...result.assets.map((a) => ({ uri: a.uri }))].slice(0, 8));
     }
   }
 
   async function takePicture() {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permiso requerido', 'Necesitamos acceso a tu cámara');
-      return;
-    }
+    if (status !== 'granted') { Alert.alert('Permiso requerido', 'Necesitamos acceso a tu cámara'); return; }
     const result = await ImagePicker.launchCameraAsync({ quality: 0.8 });
     if (!result.canceled && images.length < 8) {
       setImages((prev) => [...prev, { uri: result.assets[0].uri }]);
     }
   }
 
-  function removeImage(i: number) {
-    setImages((prev) => prev.filter((_, idx) => idx !== i));
-  }
-
   function canProceed(): boolean {
+    if (step === 'type') return !!(form.listingType);
     if (step === 'photos') return images.length > 0;
-    if (step === 'details') return !!(form.title && form.description && form.price && form.categoryId);
+    if (step === 'details') {
+      if (form.listingType === 'ITEM_WITH_PRICE') return !!(form.title && form.description && form.price && form.categoryId);
+      return !!(form.title && form.description && form.categoryId);
+    }
     if (step === 'location') return !!(form.city && form.province);
     return false;
   }
@@ -104,15 +119,17 @@ export default function SellScreen() {
     if (!canProceed()) return;
     setLoading(true);
     try {
-      // Subir imágenes
       const uploaded = await Promise.all(images.map((img) => uploadImage(img.uri)));
-
-      const listing = await listingsApi.create({
+      const payload: any = {
         ...form,
-        price: parseFloat(form.price),
         images: uploaded.map((u) => u.url),
-      });
-
+      };
+      if (form.listingType === 'ITEM_WITH_PRICE') {
+        payload.price = parseFloat(form.price) || 0;
+      } else {
+        payload.price = 0;
+      }
+      const listing = await listingsApi.create(payload);
       Alert.alert('¡Publicado!', 'Tu artículo ya está visible', [
         { text: 'Ver publicación', onPress: () => router.push(`/listing/${listing.listing.id}`) },
         { text: 'OK', onPress: () => router.replace('/(tabs)') },
@@ -124,84 +141,170 @@ export default function SellScreen() {
     }
   }
 
-  const STEPS: Step[] = ['photos', 'details', 'location'];
+  const STEPS: Step[] = ['type', 'photos', 'details', 'location'];
   const stepIdx = STEPS.indexOf(step);
 
+  const inputStyle = {
+    backgroundColor: '#1E293B', borderWidth: 1, borderColor: '#2D2060',
+    borderRadius: 14, paddingHorizontal: 16, paddingVertical: 12,
+    fontSize: 15, color: 'white',
+  };
+  const labelStyle = { fontSize: 13, fontWeight: '600' as const, color: '#E9D5FF', marginBottom: 8 };
+  const chipActive = { backgroundColor: '#6C3DE0', borderColor: '#6C3DE0' };
+  const chipInactive = { backgroundColor: '#1E293B', borderColor: '#2D2060' };
+
   return (
-    <SafeAreaView className="flex-1 bg-gray-50" edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#0F172A' }} edges={['top']}>
       {/* Header */}
-      <View className="bg-white px-4 py-3 border-b border-gray-100">
-        <Text className="text-xl font-bold text-gray-900">Publicar artículo</Text>
-        {/* Progress */}
-        <View className="flex-row gap-1.5 mt-3">
+      <View style={{
+        backgroundColor: '#1E293B', paddingHorizontal: 16, paddingVertical: 14,
+        borderBottomWidth: 1, borderBottomColor: '#2D2060',
+      }}>
+        <Text style={{ fontSize: 20, fontWeight: '800', color: '#E2E8F0' }}>Publicar artículo</Text>
+        <View style={{ flexDirection: 'row', gap: 6, marginTop: 12 }}>
           {STEPS.map((s, i) => (
-            <View
-              key={s}
-              className={`flex-1 h-1 rounded-full ${i <= stepIdx ? 'bg-blue-600' : 'bg-gray-200'}`}
-            />
+            <View key={s} style={{
+              flex: 1, height: 4, borderRadius: 2,
+              backgroundColor: i <= stepIdx ? '#6C3DE0' : '#2D2060',
+            }} />
           ))}
         </View>
       </View>
 
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        {/* PASO 1: Fotos */}
-        {step === 'photos' && (
-          <View className="p-4 gap-4">
-            <Text className="text-base font-semibold text-gray-800">
-              Fotos del artículo
-              <Text className="text-gray-400 font-normal"> (mín. 1, máx. 8)</Text>
+      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+        {/* STEP 0: Tipo de publicación */}
+        {step === 'type' && (
+          <View style={{ padding: 16 }}>
+            <Text style={{ fontSize: 18, fontWeight: '800', color: '#E2E8F0', marginBottom: 8 }}>
+              ¿Qué querés publicar?
+            </Text>
+            <Text style={{ fontSize: 14, color: '#64748B', marginBottom: 24 }}>
+              Elegí el tipo de publicación
             </Text>
 
-            <View className="flex-row flex-wrap gap-2">
+            {[
+              {
+                value: 'ITEM_WITH_PRICE',
+                title: 'Artículo con precio',
+                desc: 'Vendé un producto con precio fijo',
+                icon: '🏷️',
+              },
+              {
+                value: 'ITEM_NO_PRICE',
+                title: 'Artículo sin precio',
+                desc: 'Publicá sin poner precio (consultá)',
+                icon: '📦',
+              },
+              {
+                value: 'SERVICE',
+                title: 'Servicio',
+                desc: 'Ofrecé un servicio o trabajo',
+                icon: '🔧',
+              },
+            ].map((opt) => (
+              <TouchableOpacity
+                key={opt.value}
+                onPress={() => update('listingType', opt.value)}
+                activeOpacity={0.8}
+                style={{
+                  flexDirection: 'row', alignItems: 'center', gap: 16,
+                  backgroundColor: form.listingType === opt.value ? '#1E1248' : '#15122B',
+                  borderWidth: 2,
+                  borderColor: form.listingType === opt.value ? '#6C3DE0' : '#2D2060',
+                  borderRadius: 16, padding: 16, marginBottom: 12,
+                }}
+              >
+                <Text style={{ fontSize: 32 }}>{opt.icon}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 16, fontWeight: '700', color: '#E2E8F0' }}>{opt.title}</Text>
+                  <Text style={{ fontSize: 13, color: '#64748B', marginTop: 2 }}>{opt.desc}</Text>
+                </View>
+                <View style={{
+                  width: 22, height: 22, borderRadius: 11,
+                  borderWidth: 2,
+                  borderColor: form.listingType === opt.value ? '#6C3DE0' : '#4B5563',
+                  alignItems: 'center', justifyContent: 'center',
+                  backgroundColor: form.listingType === opt.value ? '#6C3DE0' : 'transparent',
+                }}>
+                  {form.listingType === opt.value && (
+                    <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: 'white' }} />
+                  )}
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {/* STEP 1: Photos */}
+        {step === 'photos' && (
+          <View style={{ padding: 16, gap: 16 }}>
+            <Text style={{ fontSize: 15, fontWeight: '600', color: '#E2E8F0' }}>
+              Fotos del artículo{' '}
+              <Text style={{ color: '#64748B', fontWeight: '400' }}>(mín. 1, máx. 8)</Text>
+            </Text>
+
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
               {images.map((img, i) => (
-                <View key={i} className="relative">
-                  <RNImage
-                    source={{ uri: img.uri }}
-                    className="w-24 h-24 rounded-xl"
-                  />
+                <View key={i} style={{ position: 'relative' }}>
+                  <RNImage source={{ uri: img.uri }} style={{ width: 96, height: 96, borderRadius: 14 }} />
                   <TouchableOpacity
-                    onPress={() => removeImage(i)}
-                    className="absolute -top-2 -right-2 bg-gray-800 rounded-full w-5 h-5 items-center justify-center"
+                    onPress={() => setImages((prev) => prev.filter((_, idx) => idx !== i))}
+                    style={{
+                      position: 'absolute', top: -6, right: -6,
+                      width: 22, height: 22, borderRadius: 11,
+                      backgroundColor: '#EF4444', alignItems: 'center', justifyContent: 'center',
+                    }}
                   >
-                    <Ionicons name="close" size={12} color="#fff" />
+                    <Ionicons name="close" size={12} color="white" />
                   </TouchableOpacity>
                   {i === 0 && (
-                    <View className="absolute bottom-1 left-1 bg-blue-600 rounded px-1">
-                      <Text className="text-white text-xs">Principal</Text>
+                    <View style={{
+                      position: 'absolute', bottom: 4, left: 4,
+                      backgroundColor: '#6C3DE0', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2,
+                    }}>
+                      <Text style={{ color: 'white', fontSize: 10, fontWeight: '700' }}>Principal</Text>
                     </View>
                   )}
                 </View>
               ))}
-
               {images.length < 8 && (
                 <TouchableOpacity
                   onPress={pickImages}
-                  className="w-24 h-24 rounded-xl border-2 border-dashed border-gray-300 items-center justify-center bg-gray-50"
+                  style={{
+                    width: 96, height: 96, borderRadius: 14,
+                    borderWidth: 2, borderStyle: 'dashed', borderColor: '#2D2060',
+                    alignItems: 'center', justifyContent: 'center', backgroundColor: '#1E293B',
+                  }}
                 >
-                  <Ionicons name="add" size={28} color="#9ca3af" />
-                  <Text className="text-xs text-gray-400 mt-0.5">Galería</Text>
+                  <Ionicons name="add" size={28} color="#64748B" />
+                  <Text style={{ fontSize: 11, color: '#64748B', marginTop: 2 }}>Galería</Text>
                 </TouchableOpacity>
               )}
             </View>
 
             <TouchableOpacity
               onPress={takePicture}
-              className="flex-row items-center gap-2 bg-white border border-gray-200 rounded-xl p-3.5"
+              style={{
+                flexDirection: 'row', alignItems: 'center', gap: 10,
+                backgroundColor: '#1E293B', borderWidth: 1, borderColor: '#2D2060',
+                borderRadius: 14, padding: 14,
+              }}
             >
-              <Ionicons name="camera-outline" size={22} color="#2563eb" />
-              <Text className="text-blue-600 font-medium">Tomar foto con la cámara</Text>
+              <Ionicons name="camera-outline" size={22} color="#6C3DE0" />
+              <Text style={{ color: '#6C3DE0', fontWeight: '600' }}>Tomar foto con la cámara</Text>
             </TouchableOpacity>
           </View>
         )}
 
-        {/* PASO 2: Detalles */}
+        {/* STEP 2: Details */}
         {step === 'details' && (
-          <View className="p-4 gap-4">
+          <View style={{ padding: 16, gap: 16 }}>
             <View>
-              <Text className="text-sm font-medium text-gray-700 mb-1.5">Título *</Text>
+              <Text style={labelStyle}>Título *</Text>
               <TextInput
-                className="bg-white border border-gray-200 rounded-xl px-4 py-3 text-base text-gray-900"
+                style={inputStyle}
                 placeholder="Ej: iPhone 13 128GB Negro"
+                placeholderTextColor="#475569"
                 value={form.title}
                 onChangeText={(v) => update('title', v)}
                 maxLength={100}
@@ -209,77 +312,83 @@ export default function SellScreen() {
             </View>
 
             <View>
-              <Text className="text-sm font-medium text-gray-700 mb-1.5">Descripción *</Text>
+              <Text style={labelStyle}>Descripción *</Text>
               <TextInput
-                className="bg-white border border-gray-200 rounded-xl px-4 py-3 text-base text-gray-900"
-                placeholder="Describí el artículo: características, estado, motivo de venta..."
+                style={[inputStyle, { minHeight: 100, textAlignVertical: 'top' }]}
+                placeholder="Describí el artículo..."
+                placeholderTextColor="#475569"
                 value={form.description}
                 onChangeText={(v) => update('description', v)}
-                multiline
-                numberOfLines={4}
-                textAlignVertical="top"
+                multiline numberOfLines={4}
                 maxLength={2000}
-                style={{ minHeight: 100 }}
               />
             </View>
 
-            <View className="flex-row gap-3">
-              <View className="flex-1">
-                <Text className="text-sm font-medium text-gray-700 mb-1.5">Precio *</Text>
-                <View className="flex-row">
-                  <TouchableOpacity
-                    onPress={() => update('currency', form.currency === 'ARS' ? 'USD' : 'ARS')}
-                    className="bg-gray-100 border border-gray-200 rounded-l-xl px-3 items-center justify-center border-r-0"
-                  >
-                    <Text className="text-gray-600 font-medium">{form.currency}</Text>
-                  </TouchableOpacity>
-                  <TextInput
-                    className="flex-1 bg-white border border-gray-200 rounded-r-xl px-3 py-3 text-base text-gray-900"
-                    placeholder="0"
-                    value={form.price}
-                    onChangeText={(v) => update('price', v)}
-                    keyboardType="numeric"
-                  />
-                </View>
-              </View>
-
-              <View className="flex-1">
-                <Text className="text-sm font-medium text-gray-700 mb-1.5">Estado *</Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerClassName="gap-1.5"
-                >
-                  {CONDITIONS.map((c) => (
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              {form.listingType === 'ITEM_WITH_PRICE' && (
+                <View style={{ flex: 1 }}>
+                  <Text style={labelStyle}>Precio *</Text>
+                  <View style={{ flexDirection: 'row' }}>
                     <TouchableOpacity
-                      key={c.value}
-                      onPress={() => update('condition', c.value)}
-                      className={`px-3 py-2 rounded-xl border ${
-                        form.condition === c.value ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-200'
-                      }`}
+                      onPress={() => update('currency', form.currency === 'ARS' ? 'USD' : 'ARS')}
+                      style={{
+                        backgroundColor: '#1E293B', borderWidth: 1, borderColor: '#2D2060',
+                        borderRightWidth: 0, borderTopLeftRadius: 14, borderBottomLeftRadius: 14,
+                        paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center',
+                      }}
                     >
-                      <Text className={`text-xs font-medium ${form.condition === c.value ? 'text-white' : 'text-gray-700'}`}>
-                        {c.label}
-                      </Text>
+                      <Text style={{ color: '#E9D5FF', fontWeight: '700' }}>{form.currency}</Text>
                     </TouchableOpacity>
-                  ))}
+                    <TextInput
+                      style={[inputStyle, { flex: 1, borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }]}
+                      placeholder="0"
+                      placeholderTextColor="#475569"
+                      value={form.price}
+                      onChangeText={(v) => update('price', v)}
+                      keyboardType="numeric"
+                    />
+                  </View>
+                </View>
+              )}
+
+              <View style={{ flex: 1 }}>
+                <Text style={labelStyle}>Estado *</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={{ flexDirection: 'row', gap: 6 }}>
+                    {CONDITIONS.map((c) => (
+                      <TouchableOpacity
+                        key={c.value}
+                        onPress={() => update('condition', c.value)}
+                        style={{
+                          paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, borderWidth: 1,
+                          ...(form.condition === c.value ? chipActive : chipInactive),
+                        }}
+                      >
+                        <Text style={{ fontSize: 12, fontWeight: '600', color: form.condition === c.value ? 'white' : '#94A3B8' }}>
+                          {c.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
                 </ScrollView>
               </View>
             </View>
 
             <View>
-              <Text className="text-sm font-medium text-gray-700 mb-1.5">Categoría *</Text>
-              <View className="flex-row flex-wrap gap-2">
+              <Text style={labelStyle}>Categoría *</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                 {categories.map((c) => (
                   <TouchableOpacity
                     key={c.id}
                     onPress={() => update('categoryId', c.id)}
-                    className={`flex-row items-center gap-1.5 px-3 py-2 rounded-xl border ${
-                      form.categoryId === c.id ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-200'
-                    }`}
+                    style={{
+                      flexDirection: 'row', alignItems: 'center', gap: 6,
+                      paddingHorizontal: 12, paddingVertical: 9, borderRadius: 12, borderWidth: 1,
+                      ...(form.categoryId === c.id ? chipActive : chipInactive),
+                    }}
                   >
-                    <Text className="text-sm">{c.icon}</Text>
-                    <Text className={`text-xs font-medium ${form.categoryId === c.id ? 'text-white' : 'text-gray-700'}`}>
+                    <Text style={{ fontSize: 14 }}>{c.icon}</Text>
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: form.categoryId === c.id ? 'white' : '#94A3B8' }}>
                       {c.name}
                     </Text>
                   </TouchableOpacity>
@@ -289,84 +398,104 @@ export default function SellScreen() {
           </View>
         )}
 
-        {/* PASO 3: Ubicación */}
+        {/* STEP 3: Location */}
         {step === 'location' && (
-          <View className="p-4 gap-4">
-            <Text className="text-base font-semibold text-gray-800">¿Dónde está el artículo?</Text>
+          <View style={{ padding: 16, gap: 16 }}>
+            <Text style={{ fontSize: 15, fontWeight: '600', color: '#E2E8F0' }}>¿Dónde está el artículo?</Text>
 
             <View>
-              <Text className="text-sm font-medium text-gray-700 mb-1.5">Provincia *</Text>
-              <ScrollView style={{ maxHeight: 200 }} className="bg-white border border-gray-200 rounded-xl">
+              <Text style={labelStyle}>Provincia *</Text>
+              <ScrollView style={{ maxHeight: 200, backgroundColor: '#1E293B', borderRadius: 14, borderWidth: 1, borderColor: '#2D2060' }}>
                 {PROVINCES.map((p) => (
                   <TouchableOpacity
                     key={p}
-                    onPress={() => update('province', p)}
-                    className={`px-4 py-3 border-b border-gray-50 flex-row items-center justify-between ${
-                      form.province === p ? 'bg-blue-50' : ''
-                    }`}
+                    onPress={() => { update('province', p); update('city', ''); }}
+                    style={{
+                      paddingHorizontal: 16, paddingVertical: 13,
+                      borderBottomWidth: 1, borderBottomColor: '#2D2060',
+                      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+                      backgroundColor: form.province === p ? '#4C1D95' : 'transparent',
+                    }}
                   >
-                    <Text className={`text-base ${form.province === p ? 'text-blue-600 font-medium' : 'text-gray-700'}`}>
+                    <Text style={{ fontSize: 15, color: form.province === p ? '#E9D5FF' : '#94A3B8', fontWeight: form.province === p ? '600' : '400' }}>
                       {p}
                     </Text>
-                    {form.province === p && <Ionicons name="checkmark" size={18} color="#2563eb" />}
+                    {form.province === p && <Ionicons name="checkmark" size={18} color="#E9D5FF" />}
                   </TouchableOpacity>
                 ))}
               </ScrollView>
             </View>
 
             <View>
-              <Text className="text-sm font-medium text-gray-700 mb-1.5">Ciudad *</Text>
-              <TextInput
-                className="bg-white border border-gray-200 rounded-xl px-4 py-3 text-base text-gray-900"
-                placeholder="Ej: Rosario, Córdoba, Mendoza..."
-                value={form.city}
-                onChangeText={(v) => update('city', v)}
-              />
+              <Text style={labelStyle}>{form.province === 'CABA' ? 'Barrio *' : 'Ciudad *'}</Text>
+              {form.province === 'CABA' ? (
+                <ScrollView style={{ maxHeight: 200, backgroundColor: '#1E293B', borderRadius: 14, borderWidth: 1, borderColor: '#2D2060' }}>
+                  {CABA_BARRIOS.map((b) => (
+                    <TouchableOpacity
+                      key={b}
+                      onPress={() => update('city', b)}
+                      style={{
+                        paddingHorizontal: 16, paddingVertical: 13,
+                        borderBottomWidth: 1, borderBottomColor: '#2D2060',
+                        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+                        backgroundColor: form.city === b ? '#4C1D95' : 'transparent',
+                      }}
+                    >
+                      <Text style={{ fontSize: 15, color: form.city === b ? '#E9D5FF' : '#94A3B8', fontWeight: form.city === b ? '600' : '400' }}>
+                        {b}
+                      </Text>
+                      {form.city === b && <Ionicons name="checkmark" size={18} color="#E9D5FF" />}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              ) : (
+                <TextInput
+                  style={inputStyle}
+                  placeholder="Ej: Rosario"
+                  placeholderTextColor="#64748B"
+                  value={form.city}
+                  onChangeText={(v) => update('city', v)}
+                />
+              )}
             </View>
           </View>
         )}
-
-        <View className="h-24" />
       </ScrollView>
 
-      {/* Botones de navegación */}
-      <SafeAreaView edges={['bottom']} className="bg-white border-t border-gray-100 px-4 py-3">
-        <View className="flex-row gap-3">
-          {stepIdx > 0 && (
-            <TouchableOpacity
-              onPress={() => setStep(STEPS[stepIdx - 1])}
-              className="flex-1 border border-gray-200 rounded-xl py-3.5 items-center"
-            >
-              <Text className="text-gray-700 font-bold">Atrás</Text>
-            </TouchableOpacity>
-          )}
-
-          {step !== 'location' ? (
-            <TouchableOpacity
-              onPress={() => canProceed() && setStep(STEPS[stepIdx + 1])}
-              disabled={!canProceed()}
-              className={`flex-1 rounded-xl py-3.5 items-center ${canProceed() ? 'bg-blue-600' : 'bg-gray-200'}`}
-            >
-              <Text className={`font-bold ${canProceed() ? 'text-white' : 'text-gray-400'}`}>
-                Continuar
-              </Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              onPress={handlePublish}
-              disabled={!canProceed() || loading}
-              className={`flex-1 rounded-xl py-3.5 items-center flex-row justify-center gap-2 ${
-                canProceed() && !loading ? 'bg-blue-600' : 'bg-gray-200'
-              }`}
-            >
-              {loading && <ActivityIndicator color="#fff" size="small" />}
-              <Text className={`font-bold ${canProceed() && !loading ? 'text-white' : 'text-gray-400'}`}>
-                {loading ? 'Publicando...' : 'Publicar ahora'}
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </SafeAreaView>
+      {/* Footer nav */}
+      <View style={{ paddingHorizontal: 16, paddingBottom: 20, paddingTop: 12, backgroundColor: '#0F172A', borderTopWidth: 1, borderTopColor: '#2D2060', flexDirection: 'row', gap: 12 }}>
+        {step !== 'type' && (
+          <TouchableOpacity
+            style={{ flex: 1, paddingVertical: 14, borderRadius: 14, borderWidth: 1, borderColor: '#2D2060', alignItems: 'center' }}
+            onPress={() => setStep(step === 'location' ? 'details' : step === 'details' ? 'photos' : 'type')}
+          >
+            <Text style={{ color: '#94A3B8', fontWeight: '600' }}>Atrás</Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity
+          style={{ flex: 2, borderRadius: 14, overflow: 'hidden', opacity: loading ? 0.7 : 1 }}
+          onPress={() => {
+            if (!canProceed()) { Alert.alert('Faltan datos', 'Completá todos los campos requeridos'); return; }
+            if (step === 'type') setStep('photos');
+            else if (step === 'photos') setStep('details');
+            else if (step === 'details') setStep('location');
+            else handlePublish();
+          }}
+          disabled={loading}
+        >
+          <LinearGradient
+            colors={['#6C3DE0', '#EC4899']}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+            style={{ paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
+          >
+            {loading && <ActivityIndicator color="white" size="small" />}
+            <Text style={{ color: 'white', fontWeight: '700', fontSize: 15 }}>
+              {step === 'location' ? 'Publicar' : 'Siguiente'}
+            </Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
+
