@@ -4,10 +4,13 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Star, MapPin, Calendar, Package, Clock, TrendingUp, ShoppingBag } from 'lucide-react';
+import { Star, Calendar, Package, Clock, TrendingUp, ShoppingBag } from 'lucide-react';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import ListingCard from '@/components/ListingCard';
 import { getSellerBadge, getBuyerLabel } from '@/lib/reputation';
+import FollowButton from './FollowButton';
 
 interface Props {
   params: { id: string };
@@ -33,17 +36,34 @@ async function getProfile(id: string) {
           reviewer: { select: { id: true, name: true, image: true } },
         },
       },
+      _count: {
+        select: { followers: true, following: true },
+      },
     },
   });
   return user;
 }
 
 export default async function ProfilePage({ params }: Props) {
-  const user = await getProfile(params.id);
+  const [user, session] = await Promise.all([
+    getProfile(params.id),
+    getServerSession(authOptions),
+  ]);
   if (!user) notFound();
 
   const activeListings = user.listings.filter((l) => l.status === 'ACTIVE');
   const soldListings = user.listings.filter((l) => l.status === 'SOLD');
+
+  // Verificar si el usuario actual ya sigue a este perfil
+  const viewerId = session?.user?.id;
+  const isOwnProfile = viewerId === params.id;
+  let isFollowing = false;
+  if (viewerId && !isOwnProfile) {
+    const follow = await prisma.follow.findUnique({
+      where: { followerId_followingId: { followerId: viewerId, followingId: params.id } },
+    });
+    isFollowing = !!follow;
+  }
 
   const sellerBadgeRaw = getSellerBadge(user.concretionRate ?? 0, user.completedSales ?? 0);
   const sellerBadge = sellerBadgeRaw
@@ -104,10 +124,28 @@ export default async function ProfilePage({ params }: Props) {
           {user.bio && (
             <p className="mt-3 text-sm text-gray-600 max-w-lg">{user.bio}</p>
           )}
+
+          {/* Seguidores / Seguidos */}
+          <div className="flex gap-4 mt-3 text-sm text-gray-500">
+            <span>
+              <strong className="text-gray-800">{(user as any)._count?.followers ?? 0}</strong> seguidores
+            </span>
+            <span>
+              <strong className="text-gray-800">{(user as any)._count?.following ?? 0}</strong> siguiendo
+            </span>
+          </div>
         </div>
 
-        {/* Stats */}
-        <div className="shrink-0 flex gap-2">
+        {/* Botón Seguir + Stats */}
+        <div className="shrink-0 flex flex-col items-end gap-3">
+          {!isOwnProfile && (
+            <FollowButton
+              profileId={params.id}
+              initialFollowing={isFollowing}
+              initialCount={(user as any)._count?.followers ?? 0}
+            />
+          )}
+          <div className="flex gap-2">
           {(user.completedSales ?? 0) > 0 && (
             <div className="text-center bg-gray-50 rounded-xl p-3 min-w-[80px]">
               <p className="text-2xl font-bold text-green-600">{user.completedSales}</p>

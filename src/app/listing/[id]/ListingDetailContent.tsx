@@ -32,6 +32,7 @@ export default function ListingDetailPage() {
   const [chatLoading, setChatLoading] = useState(false);
   const [buyLoading, setBuyLoading] = useState(false);
   const [liked, setLiked] = useState(false);
+  const [likeLoading, setLikeLoading] = useState(false);
 
   useEffect(() => {
     fetch(`/api/listings/${id}`)
@@ -39,6 +40,39 @@ export default function ListingDetailPage() {
       .then((d) => { setListing(d.listing); setLoading(false); })
       .catch(() => setLoading(false));
   }, [id]);
+
+  // Cargar estado inicial de favorito
+  useEffect(() => {
+    if (!session?.user) return;
+    fetch('/api/favorites')
+      .then((r) => r.json())
+      .then((favs: any[]) => {
+        if (Array.isArray(favs)) setLiked(favs.some((f) => f.id === id));
+      })
+      .catch(() => {});
+  }, [id, session?.user]);
+
+  async function handleToggleFavorite() {
+    if (!session) { router.push('/login'); return; }
+    if (likeLoading) return;
+    const prev = liked;
+    setLiked(!prev); // optimistic
+    setLikeLoading(true);
+    try {
+      const res = await fetch('/api/favorites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listingId: id }),
+      });
+      const data = await res.json();
+      if (res.ok) setLiked(data.favorited);
+      else setLiked(prev); // revert
+    } catch {
+      setLiked(prev); // revert
+    } finally {
+      setLikeLoading(false);
+    }
+  }
 
   async function handleContact() {
     if (!session) { router.push('/login'); return; }
@@ -162,8 +196,10 @@ export default function ListingDetailPage() {
                 <h1 className="text-lg font-semibold text-gray-800 mt-1">{listing.title}</h1>
               </div>
               <button
-                onClick={() => setLiked(!liked)}
-                className={`p-2 rounded-full border transition-colors ${
+                onClick={handleToggleFavorite}
+                disabled={likeLoading}
+                title={liked ? 'Quitar de favoritos' : 'Guardar en favoritos'}
+                className={`p-2 rounded-full border transition-colors disabled:opacity-60 ${
                   liked ? 'text-red-500 border-red-200 bg-red-50' : 'text-gray-400 border-gray-200 hover:bg-gray-50'
                 }`}
               >

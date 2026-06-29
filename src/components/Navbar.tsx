@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
 import { useState, useEffect } from 'react';
-import { Search, Plus, MessageCircle, Bell, Tag, User, LogOut } from 'lucide-react';
+import { Search, Plus, MessageCircle, Bell, Tag, User, LogOut, Heart } from 'lucide-react';
 
 export default function Navbar() {
   const { data: session } = useSession();
@@ -71,6 +71,11 @@ export default function Navbar() {
                 Publicar
               </Link>
 
+              {/* Guardados */}
+              <Link href="/favorites" className="p-2 rounded-full hover:bg-gray-100 hidden sm:flex" title="Guardados">
+                <Heart className="w-5 h-5 text-gray-600" />
+              </Link>
+
               {/* Notificaciones */}
               <Link href="/notifications" className="p-2 rounded-full hover:bg-gray-100 relative">
                 <Bell className="w-5 h-5 text-gray-600" />
@@ -117,6 +122,13 @@ export default function Navbar() {
                       onClick={() => setMenuOpen(false)}
                     >
                       <User className="w-4 h-4" /> Mi perfil
+                    </Link>
+                    <Link
+                      href="/favorites"
+                      className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      <Heart className="w-4 h-4" /> Guardados
                     </Link>
                     <Link
                       href="/offers"
