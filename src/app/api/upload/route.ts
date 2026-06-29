@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { uploadImage } from '@/lib/cloudinary';
+import { uploadImage, ModerationRejectedError } from '@/lib/cloudinary';
 import { verifyMobileToken } from '@/lib/mobile-auth';
 
 async function getUserId(req: NextRequest): Promise<string | null> {
@@ -39,6 +39,9 @@ export async function POST(req: NextRequest) {
     const result = await uploadImage(base64);
     return NextResponse.json(result);
   } catch (error) {
+    if (error instanceof ModerationRejectedError) {
+      return NextResponse.json({ error: error.message }, { status: 422 });
+    }
     console.error('[POST /api/upload]', error);
     return NextResponse.json({ error: 'Error al subir la imagen' }, { status: 500 });
   }

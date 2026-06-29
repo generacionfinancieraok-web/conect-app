@@ -16,6 +16,7 @@ export type ListingCardData = {
   province: string;
   condition: Condition;
   status: ListingStatus;
+  promoted?: boolean;
   createdAt: Date;
   images: { url: string }[];
   user: { name: string | null; image: string | null };

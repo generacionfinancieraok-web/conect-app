@@ -2,7 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { MapPin } from 'lucide-react';
+import { MapPin, Zap } from 'lucide-react';
 import { ListingCardData } from '@/types';
 import { formatPrice } from '@/lib/utils';
 
@@ -26,7 +26,7 @@ export default function ListingCard({ listing }: Props) {
   });
 
   return (
-    <Link href={`/listing/${listing.id}`} className="group card hover:shadow-md transition-shadow">
+    <Link href={`/listing/${listing.id}`} className={`group card hover:shadow-md transition-shadow ${listing.promoted ? 'ring-2 ring-brand-400 ring-offset-1' : ''}`}>
       {/* Imagen */}
       <div className="relative aspect-[4/3] bg-gray-100 overflow-hidden">
         {image ? (
@@ -52,6 +52,11 @@ export default function ListingCard({ listing }: Props) {
         <span className="absolute top-2 left-2 bg-white/90 text-xs px-2 py-0.5 rounded-full font-medium text-gray-700">
           {conditionLabel[listing.condition]}
         </span>
+        {listing.promoted && (
+          <span className="absolute top-2 right-2 flex items-center gap-1 bg-brand-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow">
+            <Zap className="w-2.5 h-2.5" /> DESTACADO
+          </span>
+        )}
       </div>
 
       {/* Info */}

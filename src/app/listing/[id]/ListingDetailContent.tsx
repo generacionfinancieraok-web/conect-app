@@ -9,7 +9,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
   MapPin, Eye, Star, MessageCircle, ShoppingBag,
-  ChevronLeft, ChevronRight, Share2, Heart, Flag
+  ChevronLeft, ChevronRight, Share2, Heart, Flag, Zap
 } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 
@@ -33,6 +33,7 @@ export default function ListingDetailPage() {
   const [buyLoading, setBuyLoading] = useState(false);
   const [liked, setLiked] = useState(false);
   const [likeLoading, setLikeLoading] = useState(false);
+  const [promoteLoading, setPromoteLoading] = useState(false);
 
   useEffect(() => {
     fetch(`/api/listings/${id}`)
@@ -51,6 +52,18 @@ export default function ListingDetailPage() {
       })
       .catch(() => {});
   }, [id, session?.user]);
+
+  async function handlePromote() {
+    if (promoteLoading) return;
+    setPromoteLoading(true);
+    try {
+      const method = listing.promoted ? 'DELETE' : 'POST';
+      const res = await fetch(`/api/listings/${id}/promote`, { method });
+      const data = await res.json();
+      if (res.ok) setListing((prev: any) => ({ ...prev, promoted: data.promoted }));
+    } catch {}
+    setPromoteLoading(false);
+  }
 
   async function handleToggleFavorite() {
     if (!session) { router.push('/login'); return; }
@@ -254,6 +267,22 @@ export default function ListingDetailPage() {
                 <Link href={`/listing/${id}/edit`} className="btn-secondary w-full text-center block">
                   Editar publicación
                 </Link>
+                <button
+                  onClick={handlePromote}
+                  disabled={promoteLoading}
+                  className={`w-full flex items-center justify-center gap-2 text-sm font-medium px-4 py-2 rounded-lg border transition-all disabled:opacity-60 ${
+                    listing.promoted
+                      ? 'bg-brand-50 text-brand-700 border-brand-300 hover:bg-brand-100'
+                      : 'bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100'
+                  }`}
+                >
+                  <Zap className="w-4 h-4" />
+                  {promoteLoading
+                    ? 'Procesando...'
+                    : listing.promoted
+                    ? 'Quitar destacado'
+                    : 'Destacar publicación (7 días gratis)'}
+                </button>
               </div>
             )}
           </div>

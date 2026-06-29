@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { SlidersHorizontal, X } from 'lucide-react';
+import { SlidersHorizontal, X, MapPin, LocateFixed } from 'lucide-react';
 import ListingCard from '@/components/ListingCard';
 import { PROVINCES } from '@/lib/utils';
 
@@ -32,6 +32,23 @@ export default function SearchContent() {
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
 
+  // Geolocalización
+  const [geoCoords, setGeoCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [geoRadius, setGeoRadius] = useState(10);
+  const [geoLoading, setGeoLoading] = useState(false);
+  const [geoError, setGeoError] = useState<string | null>(null);
+
+  function requestGeo() {
+    if (!navigator.geolocation) { setGeoError('Tu navegador no soporta geolocalización'); return; }
+    setGeoLoading(true);
+    setGeoError(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => { setGeoCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setGeoLoading(false); },
+      () => { setGeoError('No se pudo obtener la ubicación'); setGeoLoading(false); },
+      { timeout: 8000 }
+    );
+  }
+
   const q = searchParams.get('q') || '';
   const category = searchParams.get('category') || '';
   const province = searchParams.get('province') || '';
@@ -54,13 +71,18 @@ export default function SearchContent() {
     if (sortBy) params.set('sortBy', sortBy);
     if (minPrice) params.set('minPrice', minPrice);
     if (maxPrice) params.set('maxPrice', maxPrice);
+    if (geoCoords) {
+      params.set('lat', String(geoCoords.lat));
+      params.set('lng', String(geoCoords.lng));
+      params.set('radius', String(geoRadius));
+    }
 
     const res = await fetch(`/api/search?${params}`);
     const data = await res.json();
     setListings(data.listings || []);
     setTotal(data.pagination?.total || 0);
     setLoading(false);
-  }, [q, category, province, condition, sortBy, minPrice, maxPrice]);
+  }, [q, category, province, condition, sortBy, minPrice, maxPrice, geoCoords, geoRadius]);
 
   useEffect(() => { fetchResults(); }, [fetchResults]);
 
@@ -76,7 +98,7 @@ export default function SearchContent() {
     router.push(`/search?${p}`);
   }
 
-  const hasActiveFilters = !!(category || province || condition || minPrice || maxPrice);
+  const hasActiveFilters = !!(category || province || condition || minPrice || maxPrice || geoCoords);
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
@@ -178,6 +200,45 @@ export default function SearchContent() {
                     min="0"
                   />
                 </div>
+              </div>
+
+              {/* Geolocalización */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                  <MapPin className="w-3 h-3 inline mr-1" />Cerca de mí
+                </label>
+                {geoCoords ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-1 text-xs text-green-600 bg-green-50 rounded-lg px-2 py-1">
+                      <LocateFixed className="w-3 h-3" />
+                      <span>Ubicación activa</span>
+                      <button onClick={() => setGeoCoords(null)} className="ml-auto text-gray-400 hover:text-red-500">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                    <select
+                      value={geoRadius}
+                      onChange={(e) => setGeoRadius(parseInt(e.target.value))}
+                      className="input text-sm"
+                    >
+                      <option value={5}>5 km</option>
+                      <option value={10}>10 km</option>
+                      <option value={25}>25 km</option>
+                      <option value={50}>50 km</option>
+                      <option value={100}>100 km</option>
+                    </select>
+                  </div>
+                ) : (
+                  <button
+                    onClick={requestGeo}
+                    disabled={geoLoading}
+                    className="w-full flex items-center justify-center gap-1.5 text-xs btn-secondary py-1.5 disabled:opacity-60"
+                  >
+                    <LocateFixed className="w-3.5 h-3.5" />
+                    {geoLoading ? 'Obteniendo...' : 'Usar mi ubicación'}
+                  </button>
+                )}
+                {geoError && <p className="text-xs text-red-500 mt-1">{geoError}</p>}
               </div>
             </div>
           </aside>

@@ -75,11 +75,13 @@ export async function GET(req: NextRequest) {
     ];
   }
 
-  const orderBy: any =
+  const sortCriteria: any =
     sortBy === 'price_asc' ? { price: 'asc' }
     : sortBy === 'price_desc' ? { price: 'desc' }
     : sortBy === 'newest' ? { createdAt: 'desc' }
-    : { createdAt: 'desc' }; // relevance: fetch all and sort in-memory
+    : { createdAt: 'desc' };
+  // Publicaciones destacadas siempre primero
+  const orderBy: any = [{ promoted: 'desc' }, sortCriteria];
 
   const [listings, total] = await Promise.all([
     prisma.listing.findMany({

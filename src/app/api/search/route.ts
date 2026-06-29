@@ -2,6 +2,19 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+// Haversine distance in km
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
 
@@ -15,6 +28,10 @@ export async function GET(req: NextRequest) {
   const maxPrice = searchParams.get('maxPrice');
   const condition = searchParams.get('condition');
   const sortBy = searchParams.get('sortBy') || 'newest';
+  // Geolocalización
+  const lat = searchParams.get('lat') ? parseFloat(searchParams.get('lat')!) : null;
+  const lng = searchParams.get('lng') ? parseFloat(searchParams.get('lng')!) : null;
+  const radius = searchParams.get('radius') ? parseFloat(searchParams.get('radius')!) : null; // km
 
   const where: any = {
     status: 'ACTIVE',
@@ -36,17 +53,24 @@ export async function GET(req: NextRequest) {
     }),
   };
 
-  const orderBy: any =
+  const orderBy: any = [
+    { promoted: 'desc' },
     sortBy === 'price_asc' ? { price: 'asc' }
     : sortBy === 'price_desc' ? { price: 'desc' }
-    : { createdAt: 'desc' };
+    : { createdAt: 'desc' },
+  ];
 
-  const [listings, total] = await Promise.all([
+  // Si hay filtro geográfico, traemos más registros y filtramos en memoria
+  const useGeoFilter = lat !== null && lng !== null && radius !== null;
+  const fetchLimit = useGeoFilter ? 500 : limit;
+  const fetchSkip = useGeoFilter ? 0 : (page - 1) * limit;
+
+  const [rawListings, total] = await Promise.all([
     prisma.listing.findMany({
       where,
       orderBy,
-      skip: (page - 1) * limit,
-      take: limit,
+      skip: fetchSkip,
+      take: fetchLimit,
       include: {
         images: { orderBy: { order: 'asc' }, take: 1 },
         user: { select: { id: true, name: true, image: true } },
@@ -56,9 +80,23 @@ export async function GET(req: NextRequest) {
     prisma.listing.count({ where }),
   ]);
 
+  let listings = rawListings;
+
+  // Filtrar por radio geográfico si se proporcionaron coordenadas
+  if (useGeoFilter) {
+    listings = rawListings.filter((l: any) => {
+      if (l.latitude == null || l.longitude == null) return false;
+      return haversineKm(lat!, lng!, l.latitude, l.longitude) <= radius!;
+    });
+    // Paginar después del filtro
+    const start = (page - 1) * limit;
+    listings = listings.slice(start, start + limit);
+  }
+
   return NextResponse.json({
     listings,
     query: q,
+    geoFilter: useGeoFilter ? { lat, lng, radius } : null,
     pagination: { page, limit, total, pages: Math.ceil(total / limit) },
   });
 }
