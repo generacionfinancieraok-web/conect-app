@@ -165,9 +165,12 @@ export async function GET(req: NextRequest) {
     ...favorited.map((f) => f.listingId),
   ];
 
-  // Cold start detection (< 5 favorites = calibration mode)
+  // Cold start detection: basado en cuántas tarjetas vio el usuario (no solo likes)
   const favoriteCount = favorited.length;
-  const isColdStart = favoriteCount < 5;
+  const seenCount = userId
+    ? await prisma.discoverDismiss.count({ where: { userId } })
+    : 0;
+  const isColdStart = seenCount < 20;
 
   // Preferred categories from favorites
   let preferredCategoryIds: string[] = [];
@@ -183,8 +186,53 @@ export async function GET(req: NextRequest) {
       const cid = fav.listing.categoryId;
       categoryCounts[cid] = (categoryCounts[cid] ?? 0) + 1;
     }
-    preferredCategoryIds = Object.entries(categoryCounts)
-      .sort(([, a], [, b]) => b - a)
+
+    // Penalizar categorías con mayoría de dislikes NOT_INTERESTED (>60%)
+    const notInterestedDismisses = await prisma.discoverDismiss.findMany({
+      where: { userId, reason: 'NOT_INTERESTED' },
+      include: { listing: { select: { categoryId: true } } },
+    });
+    const allDismissesByCategory = await prisma.discoverDismiss.groupBy({
+      by: ['listingId'],
+      where: { userId },
+      _count: { listingId: true },
+    });
+    // Contar dislikes NOT_INTERESTED por categoría
+    const notInterestedByCategory: Record<string, number> = {};
+    for (const d of notInterestedDismisses) {
+      const cid = d.listing.categoryId;
+      notInterestedByCategory[cid] = (notInterestedByCategory[cid] ?? 0) + 1;
+    }
+    // Contar todos los dislikes por categoría
+    const allDislikesByCategory: Record<string, number> = {};
+    for (const d of notInterestedDismisses) {
+      // We'll reuse the not_interested dismisses to get listing categories
+      // Get total dismisses per category from all dismisses
+      const cid = d.listing.categoryId;
+      allDislikesByCategory[cid] = (allDislikesByCategory[cid] ?? 0);
+    }
+    const allDismissesWithListing = await prisma.discoverDismiss.findMany({
+      where: { userId },
+      include: { listing: { select: { categoryId: true } } },
+    });
+    for (const d of allDismissesWithListing) {
+      const cid = d.listing.categoryId;
+      allDislikesByCategory[cid] = (allDislikesByCategory[cid] ?? 0) + 1;
+    }
+    // Reduce weight of categories where >60% dislikes are NOT_INTERESTED
+    const penalizedCategories = new Set<string>();
+    for (const [cid, total] of Object.entries(allDislikesByCategory)) {
+      const notInterested = notInterestedByCategory[cid] ?? 0;
+      if (total >= 3 && notInterested / total > 0.6) {
+        penalizedCategories.add(cid);
+      }
+    }
+
+    // Build ranked list: penalized categories move to end
+    const ranked = Object.entries(categoryCounts).sort(([, a], [, b]) => b - a);
+    const nonPenalized = ranked.filter(([id]) => !penalizedCategories.has(id));
+    const penalized = ranked.filter(([id]) => penalizedCategories.has(id));
+    preferredCategoryIds = [...nonPenalized, ...penalized]
       .slice(0, 5)
       .map(([id]) => id);
   }

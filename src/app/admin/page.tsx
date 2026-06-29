@@ -94,6 +94,14 @@ function StatCard({
 }
 
 export default async function AdminDashboard() {
+  const session = await getServerSession(authOptions);
+  const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map((e: string) => e.trim()).filter(Boolean);
+  const adminOk = session?.user?.email && (ADMIN_EMAILS.length === 0 || ADMIN_EMAILS.includes(session.user.email));
+  if (!adminOk) {
+    const { notFound } = await import('next/navigation');
+    notFound();
+  }
+
   const stats = await getStats();
 
   const maxDay = Math.max(...stats.listingsByDay.map((d) => d.count), 1);
@@ -106,104 +114,4 @@ export default async function AdminDashboard() {
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         <StatCard label="Usuarios totales" value={stats.totalUsers}
           sub={`+${stats.recentUsers7} esta semana · +${stats.recentUsers30} este mes`} color="blue" />
-        <StatCard label="Publicaciones activas" value={stats.activeListings}
-          sub={`${stats.soldListings} vendidas · ${stats.recentListings7} nuevas esta semana`} color="green" />
-        <StatCard label="Reportes pendientes" value={stats.pendingReports}
-          sub="Requieren revisión" color={stats.pendingReports > 0 ? 'red' : 'green'} />
-        <StatCard label="Conversaciones" value={stats.totalConversations}
-          sub={`${stats.recentMessages} mensajes esta semana`} color="purple" />
-        <StatCard label="Ingresos aprobados" value={`$${stats.totalRevenue.toLocaleString('es-AR')}`}
-          sub="MercadoPago" color="green" />
-        <StatCard label="Conversión ofertas" value={`${stats.conversionRate.toFixed(1)}%`}
-          sub={`${stats.acceptedOffers} aceptadas / ${stats.totalOffers} totales`} color="yellow" />
-        <StatCard label="Publicaciones destacadas" value={stats.promotedListings}
-          sub="Actualmente promoted" color="pink" />
-      </div>
-
-      {/* Gráfico publicaciones por día */}
-      {stats.listingsByDay.length > 0 && (
-        <div className="bg-gray-900 rounded-xl p-5">
-          <h2 className="text-white font-semibold mb-4">Publicaciones últimos 7 días</h2>
-          <div className="flex items-end gap-2 h-32">
-            {stats.listingsByDay.map((d) => (
-              <div key={d.day} className="flex-1 flex flex-col items-center gap-1">
-                <span className="text-gray-400 text-xs">{d.count}</span>
-                <div
-                  className="w-full bg-brand-600 rounded-t-sm"
-                  style={{ height: `${Math.max((d.count / maxDay) * 100, 4)}%` }}
-                />
-                <span className="text-gray-500 text-[10px]">
-                  {new Date(d.day).toLocaleDateString('es-AR', { weekday: 'short' })}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Top categorías */}
-        <div className="bg-gray-900 rounded-xl p-5">
-          <h2 className="text-white font-semibold mb-4">Top categorías</h2>
-          <div className="space-y-2">
-            {stats.topCategories.map((cat, i) => (
-              <div key={cat.id} className="flex items-center gap-3">
-                <span className="text-gray-500 text-xs w-4">{i + 1}</span>
-                <span className="text-lg">{cat.icon ?? '📦'}</span>
-                <span className="text-gray-300 text-sm flex-1">{cat.name}</span>
-                <span className="text-gray-400 text-sm font-medium">{cat._count.listings}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Top vendedores */}
-        <div className="bg-gray-900 rounded-xl p-5">
-          <h2 className="text-white font-semibold mb-4">Top vendedores</h2>
-          <div className="space-y-3">
-            {stats.topSellers.map((seller, i) => (
-              <Link key={seller.id} href={`/profile/${seller.id}`}
-                className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-                <span className="text-gray-500 text-xs w-4">{i + 1}</span>
-                {seller.image ? (
-                  <img src={seller.image} alt={seller.name ?? ''} className="w-7 h-7 rounded-full object-cover" />
-                ) : (
-                  <div className="w-7 h-7 rounded-full bg-brand-800 flex items-center justify-center text-xs text-white font-bold">
-                    {seller.name?.[0]}
-                  </div>
-                )}
-                <span className="text-gray-300 text-sm flex-1 truncate">{seller.name}</span>
-                <span className="text-green-400 text-sm font-medium">{seller.completedSales} ventas</span>
-                {seller.rating > 0 && (
-                  <span className="text-yellow-400 text-xs">⭐ {seller.rating.toFixed(1)}</span>
-                )}
-              </Link>
-            ))}
-            {stats.topSellers.length === 0 && (
-              <p className="text-gray-500 text-sm">Aún no hay ventas concretadas</p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Accesos rápidos */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <a href="/admin/reports" className="bg-gray-900 border border-red-800 hover:border-red-600 rounded-xl p-5 block transition-colors">
-          <h2 className="text-white font-semibold mb-1">🚨 Reportes pendientes</h2>
-          <p className="text-gray-400 text-sm">{stats.pendingReports} reportes sin resolver</p>
-          <span className="text-red-400 text-sm mt-2 block">Ver reportes →</span>
-        </a>
-        <a href="/admin/listings" className="bg-gray-900 border border-gray-800 hover:border-gray-600 rounded-xl p-5 block transition-colors">
-          <h2 className="text-white font-semibold mb-1">📦 Publicaciones</h2>
-          <p className="text-gray-400 text-sm">Gestionar publicaciones y estado</p>
-          <span className="text-blue-400 text-sm mt-2 block">Ver publicaciones →</span>
-        </a>
-        <a href="/admin/users" className="bg-gray-900 border border-gray-800 hover:border-gray-600 rounded-xl p-5 block transition-colors">
-          <h2 className="text-white font-semibold mb-1">👥 Usuarios</h2>
-          <p className="text-gray-400 text-sm">Ver y gestionar cuentas</p>
-          <span className="text-purple-400 text-sm mt-2 block">Ver usuarios →</span>
-        </a>
-      </div>
-    </div>
-  );
-}
+        <StatCard label="Publicaciones activ
