@@ -47,6 +47,13 @@ export default function ListingDetailPage() {
   const [offerSuccess, setOfferSuccess] = useState(false);
   const [offerError, setOfferError] = useState('');
 
+  // Reporte
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [reportDetails, setReportDetails] = useState('');
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportSuccess, setReportSuccess] = useState(false);
+
   useEffect(() => {
     fetch(`/api/listings/${id}`)
       .then((r) => r.json())
@@ -172,6 +179,21 @@ export default function ListingDetailPage() {
       setOfferError('Error de conexión');
     }
     setOfferLoading(false);
+  }
+
+  async function handleReport() {
+    if (!session) { router.push('/login'); return; }
+    if (!reportReason) return;
+    setReportLoading(true);
+    try {
+      const res = await fetch('/api/reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listingId: id, reason: reportReason, details: reportDetails || undefined }),
+      });
+      if (res.ok) setReportSuccess(true);
+    } catch {}
+    setReportLoading(false);
   }
 
   if (loading) return (
@@ -403,7 +425,7 @@ export default function ListingDetailPage() {
               {copied ? <Link2 className="w-4 h-4 text-green-500" /> : <Share2 className="w-4 h-4" />}
               {copied ? 'Enlace copiado' : 'Compartir'}
             </button>
-            <button className="btn-secondary px-3 text-gray-400 hover:text-red-500">
+            <button onClick={() => { setShowReportModal(true); setReportSuccess(false); setReportReason(''); setReportDetails(''); }} className="btn-secondary px-3 text-gray-400 hover:text-red-500" title="Reportar publicación">
               <Flag className="w-4 h-4" />
             </button>
           </div>
@@ -500,6 +522,71 @@ export default function ListingDetailPage() {
                   </button>
                 </div>
               </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+
+      {/* Modal: reportar publicación */}
+      {showReportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <div className="flex justify-between items-start mb-4">
+              <h2 className="text-lg font-bold text-gray-900">Reportar publicación</h2>
+              <button onClick={() => setShowReportModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {reportSuccess ? (
+              <div className="text-center py-4">
+                <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <CheckCircle className="w-7 h-7 text-green-500" />
+                </div>
+                <p className="font-semibold text-gray-900 mb-1">Reporte enviado</p>
+                <p className="text-sm text-gray-500 mb-5">Nuestro equipo revisará la publicación. Gracias por ayudarnos a mantener la comunidad segura.</p>
+                <button onClick={() => setShowReportModal(false)} className="btn-primary w-full">Cerrar</button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm text-gray-500">¿Por qué querés reportar esta publicación?</p>
+                {[
+                  'Contenido inapropiado o engañoso',
+                  'Artículo prohibido',
+                  'Posible estafa o fraude',
+                  'Spam o publicidad no deseada',
+                  'Precio abusivo',
+                  'Otro motivo',
+                ].map((reason) => (
+                  <button
+                    key={reason}
+                    type="button"
+                    onClick={() => setReportReason(reason)}
+                    className={`w-full text-left px-4 py-2.5 rounded-lg border text-sm transition-all ${
+                      reportReason === reason
+                        ? 'border-brand-500 bg-brand-50 text-brand-700 font-medium'
+                        : 'border-gray-200 text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    {reason}
+                  </button>
+                ))}
+                <textarea
+                  value={reportDetails}
+                  onChange={(e) => setReportDetails(e.target.value)}
+                  placeholder="Detalles adicionales (opcional)"
+                  className="input w-full resize-none"
+                  rows={2}
+                />
+                <button
+                  onClick={handleReport}
+                  disabled={!reportReason || reportLoading}
+                  className="btn-primary w-full disabled:opacity-50"
+                >
+                  {reportLoading ? 'Enviando...' : 'Enviar reporte'}
+                </button>
+              </div>
             )}
           </div>
         </div>

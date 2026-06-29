@@ -66,6 +66,11 @@ export default function NotificationsPage() {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
   }
 
+  async function markOneRead(id: string) {
+    setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n));
+    await fetch(`/api/notifications/${id}`, { method: 'PATCH' }).catch(() => {});
+  }
+
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   if (loading) {
@@ -131,9 +136,9 @@ export default function NotificationsPage() {
             );
 
             return href ? (
-              <a key={notif.id} href={href}>{content}</a>
+              <a key={notif.id} href={href} onClick={() => !notif.read && markOneRead(notif.id)}>{content}</a>
             ) : (
-              <div key={notif.id}>{content}</div>
+              <div key={notif.id} onClick={() => !notif.read && markOneRead(notif.id)} className={!notif.read ? 'cursor-pointer' : ''}>{content}</div>
             );
           })}
         </div>

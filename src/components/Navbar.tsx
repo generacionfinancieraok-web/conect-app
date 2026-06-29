@@ -117,7 +117,7 @@ export default function Navbar() {
                 {menuOpen && (
                   <div className="absolute right-0 top-12 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
                     <Link
-                      href={`/profile/${session.user?.id}`}
+                      href="/profile/me"
                       className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50"
                       onClick={() => setMenuOpen(false)}
                     >
