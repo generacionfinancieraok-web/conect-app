@@ -133,7 +133,9 @@ export default function FavoritesPage() {
                     {listing.title}
                   </p>
                   <p className="text-brand-600 font-bold mt-1 text-sm">
-                    {formatPrice(listing.price, listing.currency)}
+                    {listing.price != null
+                      ? formatPrice(listing.price, listing.currency)
+                      : 'A convenir'}
                   </p>
                   <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                     <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">

@@ -146,18 +146,19 @@ export default async function ProfilePage({ params }: Props) {
             />
           )}
           <div className="flex gap-2">
-          {(user.completedSales ?? 0) > 0 && (
-            <div className="text-center bg-gray-50 rounded-xl p-3 min-w-[80px]">
-              <p className="text-2xl font-bold text-green-600">{user.completedSales}</p>
-              <p className="text-xs text-gray-500 mt-1">ventas</p>
-            </div>
-          )}
-          {(user.concretionRate ?? 0) > 0 && (
-            <div className="text-center bg-gray-50 rounded-xl p-3 min-w-[80px]">
-              <p className="text-2xl font-bold text-blue-600">{Math.round((user.concretionRate ?? 0) * 100)}%</p>
-              <p className="text-xs text-gray-500 mt-1">concreción</p>
-            </div>
-          )}
+            {(user.completedSales ?? 0) > 0 && (
+              <div className="text-center bg-gray-50 rounded-xl p-3 min-w-[80px]">
+                <p className="text-2xl font-bold text-green-600">{user.completedSales}</p>
+                <p className="text-xs text-gray-500 mt-1">ventas</p>
+              </div>
+            )}
+            {(user.concretionRate ?? 0) > 0 && (
+              <div className="text-center bg-gray-50 rounded-xl p-3 min-w-[80px]">
+                <p className="text-2xl font-bold text-blue-600">{Math.round((user.concretionRate ?? 0) * 100)}%</p>
+                <p className="text-xs text-gray-500 mt-1">concreción</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
