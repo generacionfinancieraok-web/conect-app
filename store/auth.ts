@@ -20,6 +20,7 @@ interface AuthState {
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   restoreSession: () => Promise<void>;
+  updateUser: (partial: Partial<User>) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -48,6 +49,10 @@ export const useAuthStore = create<AuthState>((set) => ({
     await SecureStore.setItemAsync('auth_token', data.token);
     setApiToken(data.token);
     set({ user: data.user, token: data.token, isAuthenticated: true });
+  },
+
+  updateUser: (partial) => {
+    set((state) => ({ user: state.user ? { ...state.user, ...partial } : null }));
   },
 
   logout: async () => {

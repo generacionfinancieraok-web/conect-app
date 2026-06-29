@@ -209,6 +209,19 @@ export const profileApi = {
     }
     return apiFetch<{ profile: any }>(`/api/profile/${userId}`);
   },
+
+  getMe: () => {
+    if (IS_DEMO) return Promise.resolve({ user: DEMO_USER });
+    return apiFetch<{ user: any }>('/api/users/me');
+  },
+
+  updateMe: (data: { name?: string; bio?: string | null }) => {
+    if (IS_DEMO) return Promise.resolve({ user: { ...DEMO_USER, ...data } });
+    return apiFetch<{ user: any }>('/api/users/me', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
 };
 
 // ─── Conversations ───────────────────────────────────────────────────────────

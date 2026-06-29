@@ -51,6 +51,7 @@ export default function ProfileScreen() {
   const ratingDisplay = rating && rating.count > 0 ? `${rating.average.toFixed(1)} *` : '-';
 
   const menuItems = [
+    { icon: 'create-outline',         label: 'Editar mi perfil',   onPress: () => router.push('/profile/edit') },
     { icon: 'add-circle-outline',     label: 'Nueva publicacion',  onPress: () => router.push('/(tabs)/sell') },
     { icon: 'chatbubbles-outline',    label: 'Mis mensajes',       onPress: () => router.push('/(tabs)/inbox'), badge: totalUnread > 0 ? totalUnread : undefined },
     { icon: 'notifications-outline',  label: 'Notificaciones',     onPress: () => router.push('/notifications') },
