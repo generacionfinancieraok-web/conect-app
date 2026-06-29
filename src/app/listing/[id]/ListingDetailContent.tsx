@@ -9,7 +9,8 @@ import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
   MapPin, Eye, Star, MessageCircle, ShoppingBag,
-  ChevronLeft, ChevronRight, Share2, Heart, Flag, Zap
+  ChevronLeft, ChevronRight, Share2, Heart, Flag, Zap,
+  CheckCircle, Tag, X, Link2
 } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 
@@ -34,6 +35,17 @@ export default function ListingDetailPage() {
   const [liked, setLiked] = useState(false);
   const [likeLoading, setLikeLoading] = useState(false);
   const [promoteLoading, setPromoteLoading] = useState(false);
+  const [markSoldLoading, setMarkSoldLoading] = useState(false);
+  const [showSoldConfirm, setShowSoldConfirm] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  // Oferta
+  const [showOfferModal, setShowOfferModal] = useState(false);
+  const [offerAmount, setOfferAmount] = useState('');
+  const [offerMessage, setOfferMessage] = useState('');
+  const [offerLoading, setOfferLoading] = useState(false);
+  const [offerSuccess, setOfferSuccess] = useState(false);
+  const [offerError, setOfferError] = useState('');
 
   useEffect(() => {
     fetch(`/api/listings/${id}`)
@@ -69,7 +81,7 @@ export default function ListingDetailPage() {
     if (!session) { router.push('/login'); return; }
     if (likeLoading) return;
     const prev = liked;
-    setLiked(!prev); // optimistic
+    setLiked(!prev);
     setLikeLoading(true);
     try {
       const res = await fetch('/api/favorites', {
@@ -79,9 +91,9 @@ export default function ListingDetailPage() {
       });
       const data = await res.json();
       if (res.ok) setLiked(data.favorited);
-      else setLiked(prev); // revert
+      else setLiked(prev);
     } catch {
-      setLiked(prev); // revert
+      setLiked(prev);
     } finally {
       setLikeLoading(false);
     }
@@ -111,6 +123,55 @@ export default function ListingDetailPage() {
     const data = await res.json();
     setBuyLoading(false);
     if (data.initPoint) window.location.href = data.initPoint;
+  }
+
+  async function handleMarkSold() {
+    setMarkSoldLoading(true);
+    try {
+      const res = await fetch(`/api/listings/${id}/mark-sold`, { method: 'POST' });
+      if (res.ok) {
+        setListing((prev: any) => ({ ...prev, status: 'SOLD' }));
+        setShowSoldConfirm(false);
+      }
+    } catch {}
+    setMarkSoldLoading(false);
+  }
+
+  async function handleShare() {
+    const url = window.location.href;
+    if (navigator.share) {
+      try { await navigator.share({ title: listing.title, url }); return; } catch {}
+    }
+    await navigator.clipboard.writeText(url).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  async function handleOffer() {
+    if (!session) { router.push('/login'); return; }
+    setOfferError('');
+    const amount = parseFloat(offerAmount.replace(/\./g, '').replace(',', '.'));
+    if (!amount || amount <= 0) { setOfferError('Ingresá un monto válido'); return; }
+    if (amount >= listing.price) { setOfferError('La oferta debe ser menor al precio'); return; }
+    setOfferLoading(true);
+    try {
+      const res = await fetch('/api/offers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listingId: id, amount, message: offerMessage || undefined }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setOfferSuccess(true);
+        setOfferAmount('');
+        setOfferMessage('');
+      } else {
+        setOfferError(data.error || 'Error al enviar la oferta');
+      }
+    } catch {
+      setOfferError('Error de conexión');
+    }
+    setOfferLoading(false);
   }
 
   if (loading) return (
@@ -252,6 +313,12 @@ export default function ListingDetailPage() {
                   {chatLoading ? 'Abriendo chat...' : 'Contactar vendedor'}
                 </button>
                 <button
+                  onClick={() => { setShowOfferModal(true); setOfferSuccess(false); setOfferError(''); }}
+                  className="w-full flex items-center justify-center gap-2 text-sm font-medium px-4 py-2.5 rounded-lg border border-brand-300 bg-brand-50 text-brand-700 hover:bg-brand-100 transition-colors"
+                >
+                  <Tag className="w-4 h-4" /> Hacer una oferta
+                </button>
+                <button
                   onClick={handleBuy}
                   disabled={buyLoading}
                   className="btn-primary w-full flex items-center justify-center gap-2"
@@ -267,6 +334,14 @@ export default function ListingDetailPage() {
                 <Link href={`/listing/${id}/edit`} className="btn-secondary w-full text-center block">
                   Editar publicación
                 </Link>
+                {listing.status === 'ACTIVE' && (
+                  <button
+                    onClick={() => setShowSoldConfirm(true)}
+                    className="w-full flex items-center justify-center gap-2 text-sm font-medium px-4 py-2.5 rounded-lg border border-green-300 bg-green-50 text-green-700 hover:bg-green-100 transition-colors"
+                  >
+                    <CheckCircle className="w-4 h-4" /> Marcar como vendido
+                  </button>
+                )}
                 <button
                   onClick={handlePromote}
                   disabled={promoteLoading}
@@ -322,10 +397,11 @@ export default function ListingDetailPage() {
 
           <div className="flex gap-2">
             <button
-              onClick={() => navigator.share?.({ title: listing.title, url: window.location.href })}
+              onClick={handleShare}
               className="btn-secondary flex-1 flex items-center justify-center gap-2 text-sm"
             >
-              <Share2 className="w-4 h-4" /> Compartir
+              {copied ? <Link2 className="w-4 h-4 text-green-500" /> : <Share2 className="w-4 h-4" />}
+              {copied ? 'Enlace copiado' : 'Compartir'}
             </button>
             <button className="btn-secondary px-3 text-gray-400 hover:text-red-500">
               <Flag className="w-4 h-4" />
@@ -333,6 +409,101 @@ export default function ListingDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Modal: confirmar marcar vendido */}
+      {showSoldConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <div className="flex justify-between items-start mb-4">
+              <h2 className="text-lg font-bold text-gray-900">¿Marcar como vendido?</h2>
+              <button onClick={() => setShowSoldConfirm(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-500 mb-5">
+              Esto marcará tu publicación como vendida. Esta acción no se puede deshacer y actualizará tu reputación de vendedor.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setShowSoldConfirm(false)} className="flex-1 btn-secondary">
+                Cancelar
+              </button>
+              <button
+                onClick={handleMarkSold}
+                disabled={markSoldLoading}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+              >
+                <CheckCircle className="w-4 h-4" />
+                {markSoldLoading ? 'Guardando...' : 'Confirmar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: hacer oferta */}
+      {showOfferModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <div className="flex justify-between items-start mb-4">
+              <h2 className="text-lg font-bold text-gray-900">Hacer una oferta</h2>
+              <button onClick={() => setShowOfferModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {offerSuccess ? (
+              <div className="text-center py-4">
+                <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <CheckCircle className="w-7 h-7 text-green-500" />
+                </div>
+                <p className="font-semibold text-gray-900 mb-1">¡Oferta enviada!</p>
+                <p className="text-sm text-gray-500 mb-5">El vendedor recibirá una notificación y podrá aceptar o rechazar tu oferta.</p>
+                <button onClick={() => setShowOfferModal(false)} className="btn-primary w-full">Cerrar</button>
+              </div>
+            ) : (
+              <>
+                <p className="text-sm text-gray-500 mb-1">
+                  Precio publicado: <span className="font-semibold text-gray-800">{formatPrice(listing.price, listing.currency)}</span>
+                </p>
+                <div className="mt-4 space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Tu oferta ({listing.currency}) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      value={offerAmount}
+                      onChange={(e) => setOfferAmount(e.target.value)}
+                      placeholder={`Ej: ${Math.round(listing.price * 0.85).toLocaleString('es-AR')}`}
+                      className="input w-full"
+                      min="1"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Mensaje (opcional)</label>
+                    <textarea
+                      value={offerMessage}
+                      onChange={(e) => setOfferMessage(e.target.value)}
+                      placeholder="¿Por qué hacés esta oferta? (opcional)"
+                      className="input w-full resize-none"
+                      rows={2}
+                    />
+                  </div>
+                  {offerError && <p className="text-sm text-red-500">{offerError}</p>}
+                  <button
+                    onClick={handleOffer}
+                    disabled={offerLoading}
+                    className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    <Tag className="w-4 h-4" />
+                    {offerLoading ? 'Enviando...' : 'Enviar oferta'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

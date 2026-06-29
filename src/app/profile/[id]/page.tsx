@@ -11,6 +11,8 @@ import { prisma } from '@/lib/prisma';
 import ListingCard from '@/components/ListingCard';
 import { getSellerBadge, getBuyerLabel } from '@/lib/reputation';
 import FollowButton from './FollowButton';
+import ReviewForm from './ReviewForm';
+
 
 interface Props {
   params: { id: string };
@@ -223,10 +225,22 @@ export default async function ProfilePage({ params }: Props) {
         </section>
       )}
 
+
       {/* Reseñas */}
-      {user.reviews.length > 0 && (
-        <section>
-          <h2 className="text-lg font-semibold mb-4">Reseñas</h2>
+      <section className="mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">
+            Reseñas
+            {user.reviews.length > 0 && (
+              <span className="ml-2 text-sm font-normal text-gray-400">({user.reviews.length})</span>
+            )}
+          </h2>
+          {!isOwnProfile && (
+            <ReviewForm profileId={params.id} />
+          )}
+        </div>
+
+        {user.reviews.length > 0 && (
           <div className="space-y-3">
             {(user.reviews as any[]).map((review) => (
               <div key={review.id} className="card p-4 flex gap-3">
@@ -264,8 +278,11 @@ export default async function ProfilePage({ params }: Props) {
               </div>
             ))}
           </div>
-        </section>
-      )}
+        )}
+        {user.reviews.length === 0 && !isOwnProfile && (
+          <p className="text-sm text-gray-400">Este usuario no tiene reseñas aún. ¡Sé el primero!</p>
+        )}
+      </section>
 
       {activeListings.length === 0 && soldListings.length === 0 && (
         <div className="text-center py-12 text-gray-400">
