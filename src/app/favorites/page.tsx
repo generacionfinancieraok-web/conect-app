@@ -133,7 +133,11 @@ export default function FavoritesPage() {
                     {listing.title}
                   </p>
                   <p className="text-brand-600 font-bold mt-1 text-sm">
-                    {listing.price != null
+                    {listing.listingType === 'SERVICE'
+                      ? '🔧 Servicio'
+                      : listing.listingType === 'ITEM_NO_PRICE' || listing.price === 0
+                      ? 'Consultar precio'
+                      : listing.price != null
                       ? formatPrice(listing.price, listing.currency)
                       : 'A convenir'}
                   </p>

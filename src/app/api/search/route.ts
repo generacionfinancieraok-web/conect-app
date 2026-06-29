@@ -27,6 +27,7 @@ export async function GET(req: NextRequest) {
   const minPrice = searchParams.get('minPrice');
   const maxPrice = searchParams.get('maxPrice');
   const condition = searchParams.get('condition');
+  const listingType = searchParams.get('listingType');
   const sortBy = searchParams.get('sortBy') || 'newest';
   // Geolocalización
   const lat = searchParams.get('lat') ? parseFloat(searchParams.get('lat')!) : null;
@@ -45,58 +46,8 @@ export async function GET(req: NextRequest) {
     ...(province && { province: { contains: province, mode: 'insensitive' } }),
     ...(city && { city: { contains: city, mode: 'insensitive' } }),
     ...(condition && { condition }),
+    ...(listingType && { listingType }),
     ...((minPrice || maxPrice) && {
       price: {
         ...(minPrice && { gte: parseFloat(minPrice) }),
-        ...(maxPrice && { lte: parseFloat(maxPrice) }),
-      },
-    }),
-  };
-
-  const orderBy: any = [
-    { promoted: 'desc' },
-    sortBy === 'price_asc' ? { price: 'asc' }
-    : sortBy === 'price_desc' ? { price: 'desc' }
-    : { createdAt: 'desc' },
-  ];
-
-  // Si hay filtro geográfico, traemos más registros y filtramos en memoria
-  const useGeoFilter = lat !== null && lng !== null && radius !== null;
-  const fetchLimit = useGeoFilter ? 500 : limit;
-  const fetchSkip = useGeoFilter ? 0 : (page - 1) * limit;
-
-  const [rawListings, total] = await Promise.all([
-    prisma.listing.findMany({
-      where,
-      orderBy,
-      skip: fetchSkip,
-      take: fetchLimit,
-      include: {
-        images: { orderBy: { order: 'asc' }, take: 1 },
-        user: { select: { id: true, name: true, image: true } },
-        category: true,
-      },
-    }),
-    prisma.listing.count({ where }),
-  ]);
-
-  let listings = rawListings;
-
-  // Filtrar por radio geográfico si se proporcionaron coordenadas
-  if (useGeoFilter) {
-    listings = rawListings.filter((l: any) => {
-      if (l.latitude == null || l.longitude == null) return false;
-      return haversineKm(lat!, lng!, l.latitude, l.longitude) <= radius!;
-    });
-    // Paginar después del filtro
-    const start = (page - 1) * limit;
-    listings = listings.slice(start, start + limit);
-  }
-
-  return NextResponse.json({
-    listings,
-    query: q,
-    geoFilter: useGeoFilter ? { lat, lng, radius } : null,
-    pagination: { page, limit, total, pages: Math.ceil(total / limit) },
-  });
-}
+        
