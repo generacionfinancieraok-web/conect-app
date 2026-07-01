@@ -26,7 +26,6 @@
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://conect-app-production.up.railway.app",
-        "EXPO_PUBLIC_SOCKET_URL": "https://conect-app-production.up.railway.app",
         "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "828748924331-78k1ajfntlem564qi2u0ukf60thcqtej.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "828748924331-ud3s56oc7m51a6a57rqur234oshq7uu5.apps.googleusercontent.com"
       }
@@ -41,4 +40,15 @@
     },
     "internal": {
       "android": {
-        "servi
+        "serviceAccountKeyPath": "./google-service-account.json",
+        "track": "internal"
+      }
+    },
+    "alpha": {
+      "android": {
+        "serviceAccountKeyPath": "./google-service-account.json",
+        "track": "alpha"
+      }
+    }
+  }
+}
