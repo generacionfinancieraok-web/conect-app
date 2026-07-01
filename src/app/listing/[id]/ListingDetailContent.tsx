@@ -559,7 +559,6 @@ export default function ListingDetailPage() {
           </div>
         </div>
       )}
-    </div>
 
       {/* Modal: reportar publicación */}
       {showReportModal && (

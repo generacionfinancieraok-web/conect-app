@@ -246,4 +246,46 @@ export default function SearchContent() {
                     disabled={geoLoading}
                     className="w-full flex items-center justify-center gap-1.5 text-xs btn-secondary py-1.5 disabled:opacity-60"
                   >
+                    <LocateFixed className="w-3 h-3" />
+                    {geoLoading ? 'Obteniendo...' : 'Usar mi ubicación'}
+                  </button>
+                )}
+                {geoError && <p className="text-xs text-red-500 mt-1">{geoError}</p>}
+              </div>
+            </div>
+          </aside>
+        )}
+
+        {/* Resultados */}
+        <div className="flex-1 min-w-0">
+          {loading ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="card animate-pulse">
+                  <div className="aspect-[4/3] bg-gray-100 rounded-xl" />
+                  <div className="p-3 space-y-2">
+                    <div className="h-4 bg-gray-100 rounded w-3/4" />
+                    <div className="h-3 bg-gray-100 rounded w-1/2" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : listings.length === 0 ? (
+            <div className="text-center py-16 text-gray-400">
+              <p className="text-4xl mb-3">🔍</p>
+              <p className="font-medium">Sin resultados</p>
+              <p className="text-sm mt-1">Probá con otros filtros o una búsqueda diferente</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              {listings.map((l: any) => (
+                <ListingCard key={l.id} listing={l} />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
                  

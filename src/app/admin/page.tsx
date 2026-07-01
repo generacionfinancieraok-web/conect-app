@@ -114,4 +114,78 @@ export default async function AdminDashboard() {
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         <StatCard label="Usuarios totales" value={stats.totalUsers}
           sub={`+${stats.recentUsers7} esta semana · +${stats.recentUsers30} este mes`} color="blue" />
-        <StatCard label="Publicaciones activ
+        <StatCard label="Publicaciones activas" value={stats.activeListings}
+          sub={`+${stats.recentListings7} esta semana · ${stats.soldListings} vendidas`} color="green" />
+        <StatCard label="Ingresos totales" value={`$${stats.totalRevenue.toLocaleString()}`}
+          sub="Pagos aprobados" color="yellow" />
+        <StatCard label="Reportes pendientes" value={stats.pendingReports}
+          sub="Requieren revisión" color="red" />
+        <StatCard label="Conversaciones" value={stats.totalConversations}
+          sub={`${stats.recentMessages} mensajes esta semana`} color="purple" />
+        <StatCard label="Ofertas totales" value={stats.totalOffers}
+          sub={`${stats.conversionRate.toFixed(1)}% tasa de conversión`} color="pink" />
+        <StatCard label="Publicaciones destacadas" value={stats.promotedListings}
+          sub="Actualmente promocionadas" color="yellow" />
+        <StatCard label="Total publicaciones" value={stats.totalListings}
+          sub={`${stats.activeListings} activas · ${stats.soldListings} vendidas`} color="blue" />
+      </div>
+
+      {/* Gráfico de publicaciones por día */}
+      <div className="bg-gray-900 rounded-xl p-5">
+        <h2 className="text-white font-semibold mb-4">Publicaciones — últimos 7 días</h2>
+        <div className="flex items-end gap-2 h-24">
+          {stats.listingsByDay.map((d) => (
+            <div key={d.day} className="flex-1 flex flex-col items-center gap-1">
+              <span className="text-xs text-gray-400">{d.count}</span>
+              <div
+                className="w-full bg-brand-600 rounded-t"
+                style={{ height: `${(d.count / maxDay) * 80}px`, minHeight: '4px' }}
+              />
+              <span className="text-[10px] text-gray-500 truncate w-full text-center">
+                {d.day.slice(5)}
+              </span>
+            </div>
+          ))}
+          {stats.listingsByDay.length === 0 && (
+            <p className="text-gray-500 text-sm">Sin datos</p>
+          )}
+        </div>
+      </div>
+
+      {/* Top categorías y top vendedores */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-gray-900 rounded-xl p-5">
+          <h2 className="text-white font-semibold mb-3">Top categorías</h2>
+          <ul className="space-y-2">
+            {stats.topCategories.map((cat) => (
+              <li key={cat.id} className="flex items-center justify-between">
+                <span className="text-gray-300 text-sm">{cat.name}</span>
+                <span className="text-gray-400 text-sm font-medium">{cat._count.listings}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="bg-gray-900 rounded-xl p-5">
+          <h2 className="text-white font-semibold mb-3">Top vendedores</h2>
+          <ul className="space-y-2">
+            {stats.topSellers.map((u) => (
+              <li key={u.id} className="flex items-center justify-between">
+                <Link href={`/profile/${u.id}`} className="text-brand-400 text-sm hover:underline truncate max-w-[60%]">
+                  {u.name}
+                </Link>
+                <span className="text-gray-400 text-sm">{u.completedSales} ventas · ⭐ {u.rating?.toFixed(1) ?? '—'}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      {/* Links admin */}
+      <div className="flex gap-3 flex-wrap">
+        <Link href="/admin/users" className="btn-secondary text-sm">Usuarios</Link>
+        <Link href="/admin/listings" className="btn-secondary text-sm">Publicaciones</Link>
+        <Link href="/admin/reports" className="btn-secondary text-sm">Reportes</Link>
+      </div>
+    </div>
+  );
+}

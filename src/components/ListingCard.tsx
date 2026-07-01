@@ -70,4 +70,15 @@ export default function ListingCard({ listing }: Props) {
             {formatPrice(listing.price, listing.currency)}
           </p>
         )}
-        <p className="text-sm text-gray-700 mt-0.5 line-clamp-
+        <p className="text-sm text-gray-700 mt-0.5 line-clamp-2 font-medium">{listing.title}</p>
+        <div className="flex items-center justify-between mt-2 text-xs text-gray-400">
+          <span className="flex items-center gap-0.5 truncate max-w-[60%]">
+            <MapPin className="w-3 h-3 shrink-0" />
+            <span className="truncate">{listing.city}</span>
+          </span>
+          <span className="shrink-0">{timeAgo}</span>
+        </div>
+      </div>
+    </Link>
+  );
+}

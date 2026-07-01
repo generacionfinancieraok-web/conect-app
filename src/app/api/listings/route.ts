@@ -192,4 +192,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Error al crear la publicación' }, { status: 500 });
   }
 }
-}
