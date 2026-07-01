@@ -1,17 +1,45 @@
 /**
- * Email service using Resend (https://resend.com)
- * Requires RESEND_API_KEY env var and a verified sender domain.
+ * Email service usando Gmail SMTP con nodemailer.
  *
- * Setup:
- *  1. Create account at resend.com
- *  2. Add RESEND_API_KEY to Railway env vars
- *  3. Set RESEND_FROM to your verified sender email (e.g. "Conect App <noreply@yourdomain.com>")
- *     Or use the Resend sandbox address during testing: "onboarding@resend.dev"
+ * Configuración en Railway (o .env.local):
+ *   GMAIL_USER=generacionfinancieraok@gmail.com
+ *   GMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx   ← App Password de Google (no la contraseña normal)
+ *
+ * Cómo crear una App Password:
+ *   1. Ir a myaccount.google.com → Seguridad → Verificación en 2 pasos (debe estar activa)
+ *   2. Ir a myaccount.google.com/apppasswords
+ *   3. Crear una nueva para "Correo" > "Otro (nombre personalizado)" → "Conect App"
+ *   4. Copiar la contraseña de 16 caracteres a GMAIL_APP_PASSWORD
  */
 
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const FROM = process.env.RESEND_FROM || 'Conect App <onboarding@resend.dev>';
+import nodemailer from 'nodemailer';
+
+const GMAIL_USER = process.env.GMAIL_USER || 'generacionfinancieraok@gmail.com';
+const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD;
+const FROM = `Conect App <${GMAIL_USER}>`;
 const APP_URL = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+
+// Crear transporter una sola vez (singleton via globalThis en dev con hot reload)
+declare global { var __emailTransporter: nodemailer.Transporter | undefined; }
+
+function getTransporter(): nodemailer.Transporter | null {
+  if (!GMAIL_APP_PASSWORD) {
+    console.warn('[email] GMAIL_APP_PASSWORD no configurado — emails desactivados');
+    return null;
+  }
+  if (globalThis.__emailTransporter) return globalThis.__emailTransporter;
+
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: GMAIL_USER,
+      pass: GMAIL_APP_PASSWORD,
+    },
+  });
+
+  globalThis.__emailTransporter = transporter;
+  return transporter;
+}
 
 interface EmailPayload {
   to: string;
@@ -20,32 +48,23 @@ interface EmailPayload {
 }
 
 async function sendEmail(payload: EmailPayload): Promise<{ success: boolean; error?: string }> {
-  if (!RESEND_API_KEY) {
-    console.warn('[email] RESEND_API_KEY not set — skipping email send');
-    return { success: false, error: 'RESEND_API_KEY not configured' };
+  const transporter = getTransporter();
+  if (!transporter) {
+    return { success: false, error: 'Email no configurado' };
   }
 
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${RESEND_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
+  try {
+    await transporter.sendMail({
       from: FROM,
       to: payload.to,
       subject: payload.subject,
       html: payload.html,
-    }),
-  });
-
-  if (!res.ok) {
-    const body = await res.text();
-    console.error('[email] Resend error', res.status, body);
-    return { success: false, error: body };
+    });
+    return { success: true };
+  } catch (e: any) {
+    console.error('[email] Error enviando email:', e.message);
+    return { success: false, error: e.message };
   }
-
-  return { success: true };
 }
 
 // ─── Templates ───────────────────────────────────────────────────────────────

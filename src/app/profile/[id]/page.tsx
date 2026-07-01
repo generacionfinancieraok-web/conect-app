@@ -142,7 +142,7 @@ export default async function ProfilePage({ params }: Props) {
         {/* Botón Seguir + Stats */}
         <div className="shrink-0 flex flex-col items-end gap-3">
           {isOwnProfile ? (
-            <EditProfileModal initialName={user.name ?? ''} initialBio={user.bio ?? null} />
+            <EditProfileModal initialName={user.name ?? ''} initialBio={user.bio ?? null} initialImage={user.image ?? null} />
           ) : (
             <FollowButton
               profileId={params.id}

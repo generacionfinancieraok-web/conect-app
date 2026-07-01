@@ -19,7 +19,7 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https://res.cloudinary.com https://lh3.googleusercontent.com https://avatars.githubusercontent.com https://www.google.com",
       "font-src 'self'",
-      "connect-src 'self' https://conect-app-production.up.railway.app wss://conect-app-production.up.railway.app https://api.resend.com https://exp.host https://api.mercadopago.com",
+      "connect-src 'self' https://conect-app-production.up.railway.app https://exp.host https://api.mercadopago.com",
       "frame-src 'self' https://www.mercadopago.com.ar https://www.mercadopago.com",
       "object-src 'none'",
       "base-uri 'self'",
