@@ -44,7 +44,7 @@ const nextConfig = {
     ],
   },
   experimental: {
-    serverComponentsExternalPackages: ['@prisma/client', 'bcryptjs'],
+    serverComponentsExternalPackages: ['@prisma/client', 'bcryptjs', 'nodemailer'],
   },
   webpack: (config) => {
     config.resolve.alias['@'] = path.resolve(__dirname, './src');
