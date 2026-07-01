@@ -45,10 +45,59 @@ export async function POST(req: NextRequest) {
   if (rating < 1 || rating > 5)
     return NextResponse.json({ error: 'Rating debe ser entre 1 y 5' }, { status: 400 });
 
+  // Validación transaccional: solo se puede calificar a alguien con quien se concretó una venta
+  const hasTransacted = await prisma.conversation.findFirst({
+    where: {
+      AND: [
+        { participants: { some: { id: reviewerId } } },
+        { participants: { some: { id: reviewedId } } },
+        { listing: { status: 'SOLD' } },
+      ],
+    },
+    select: { id: true },
+  });
+
+  if (!hasTransacted) {
+    // También chequeamos si hay una oferta aceptada entre ellos
+    const hasOffer = await prisma.offer.findFirst({
+      where: {
+        OR: [
+          { buyerId: reviewerId, sellerId: reviewedId, status: 'ACCEPTED' },
+          { buyerId: reviewedId, sellerId: reviewerId, status: 'ACCEPTED' },
+        ],
+      },
+      select: { id: true },
+    });
+
+    if (!hasOffer) {
+      return NextResponse.json(
+        { error: 'Solo podés calificar usuarios con quienes hayas concretado una transacción' },
+        { status: 403 }
+      );
+    }
+  }
+
   const existing = await prisma.review.findUnique({
     where: { reviewerId_reviewedId: { reviewerId, reviewedId } },
   });
-  if (existing) return NextResponse.json({ error: 'Ya calificaste a este usuario' }, { status: 400 });
+  if (existing) {
+    // Actualizar en vez de rechazar — permite mejorar la reseña
+    const updated = await prisma.review.update({
+      where: { reviewerId_reviewedId: { reviewerId, reviewedId } },
+      data: { rating, comment: comment ?? existing.comment },
+      include: { reviewer: { select: { name: true } } },
+    });
+
+    // Recalcular promedio
+    const allReviews = await prisma.review.findMany({ where: { reviewedId } });
+    const avg = allReviews.reduce((s, r) => s + r.rating, 0) / allReviews.length;
+    await prisma.user.update({
+      where: { id: reviewedId },
+      data: { rating: avg, ratingCount: allReviews.length },
+    });
+
+    return NextResponse.json(updated);
+  }
 
   const review = await prisma.review.create({
     data: { reviewerId, reviewedId, rating, comment, listingId },

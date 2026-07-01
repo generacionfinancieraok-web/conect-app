@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import Image from 'next/image';
 import { Send } from 'lucide-react';
-import { io, Socket } from 'socket.io-client';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -29,51 +28,67 @@ export default function ChatWindow({ conversationId, listingTitle, listingImage,
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [otherTyping, setOtherTyping] = useState(false);
+  const [connected, setConnected] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const socketRef = useRef<Socket | null>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const typingCooldownRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Cargar mensajes
+  // Cargar mensajes iniciales
   useEffect(() => {
     fetch(`/api/conversations/${conversationId}/messages`)
       .then((r) => r.json())
       .then((d) => setMessages(d.messages || []));
-    // Marcar mensajes como leídos al abrir la conversación
     fetch(`/api/conversations/${conversationId}/read`, { method: 'POST' }).catch(() => {});
   }, [conversationId]);
 
-  // Socket.io
+  // SSE — tiempo real
   useEffect(() => {
-    const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || '', { path: '/socket.io' });
-    socketRef.current = socket;
+    const eventSource = new EventSource(`/api/conversations/${conversationId}/events`);
 
-    socket.emit('join_conversation', conversationId);
+    eventSource.onmessage = (event) => {
+      const data = JSON.parse(event.data);
 
-    socket.on('new_message', (msg: Message) => {
-      setMessages((prev) => [...prev, msg]);
-    });
-
-    socket.on('user_typing', ({ userId }: { userId: string }) => {
-      if (userId !== session?.user?.id) {
+      if (data.type === 'connected') {
+        setConnected(true);
+      } else if (data.type === 'message') {
+        setMessages((prev) => {
+          // deduplicar por id
+          if (prev.some((m) => m.id === data.payload.id)) return prev;
+          return [...prev, data.payload];
+        });
+        // Marcar como leído
+        fetch(`/api/conversations/${conversationId}/read`, { method: 'POST' }).catch(() => {});
+      } else if (data.type === 'typing') {
         setOtherTyping(true);
-        setTimeout(() => setOtherTyping(false), 2000);
+        if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+        typingTimerRef.current = setTimeout(() => setOtherTyping(false), 3000);
       }
-    });
+    };
+
+    eventSource.onerror = () => {
+      setConnected(false);
+      // EventSource hace reconnect automático
+    };
 
     return () => {
-      socket.emit('leave_conversation', conversationId);
-      socket.disconnect();
+      eventSource.close();
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+      if (typingCooldownRef.current) clearTimeout(typingCooldownRef.current);
     };
-  }, [conversationId, session?.user?.id]);
+  }, [conversationId]);
 
-  // Scroll al fondo
+  // Scroll al fondo en cada mensaje nuevo
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, otherTyping]);
 
+  // Indicador de escritura con cooldown (1 evento cada 2s)
   function handleTyping() {
-    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
-    socketRef.current?.emit('typing', { conversationId, userId: session?.user?.id });
+    if (typingCooldownRef.current) return;
+    fetch(`/api/conversations/${conversationId}/typing`, { method: 'POST' }).catch(() => {});
+    typingCooldownRef.current = setTimeout(() => {
+      typingCooldownRef.current = null;
+    }, 2000);
   }
 
   async function sendMessage(e: React.FormEvent) {
@@ -84,18 +99,28 @@ export default function ChatWindow({ conversationId, listingTitle, listingImage,
     setInput('');
     setSending(true);
 
-    await fetch(`/api/conversations/${conversationId}/messages`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ body }),
-    });
+    try {
+      const res = await fetch(`/api/conversations/${conversationId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ body }),
+      });
+      if (res.ok) {
+        const { message } = await res.json();
+        // Agregar localmente (SSE deduplicará si llega por el stream)
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === message.id)) return prev;
+          return [...prev, message];
+        });
+      }
+    } catch { /* no-op */ }
 
     setSending(false);
   }
 
   return (
     <div className="flex flex-col h-[calc(100vh-120px)]">
-      {/* Header de la conv */}
+      {/* Header */}
       <div className="flex items-center gap-3 p-4 border-b border-gray-100 bg-white">
         {listingImage && (
           <div className="relative w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-gray-100">
@@ -106,6 +131,8 @@ export default function ChatWindow({ conversationId, listingTitle, listingImage,
           <p className="font-semibold text-sm truncate">{otherUser.name}</p>
           <p className="text-xs text-gray-400 truncate">{listingTitle}</p>
         </div>
+        {/* Indicador de conexión */}
+        <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-400' : 'bg-gray-300'}`} title={connected ? 'Conectado' : 'Reconectando...'} />
       </div>
 
       {/* Mensajes */}
@@ -169,6 +196,7 @@ export default function ChatWindow({ conversationId, listingTitle, listingImage,
           type="text"
           value={input}
           onChange={(e) => { setInput(e.target.value); handleTyping(); }}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { sendMessage(e); } }}
           placeholder="Escribí un mensaje..."
           className="flex-1 input rounded-full px-4"
           maxLength={1000}

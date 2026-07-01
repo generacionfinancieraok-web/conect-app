@@ -50,4 +50,63 @@ export async function GET(req: NextRequest) {
     ...((minPrice || maxPrice) && {
       price: {
         ...(minPrice && { gte: parseFloat(minPrice) }),
-        
+        ...(maxPrice && { lte: parseFloat(maxPrice) }),
+      },
+    }),
+  };
+
+  const orderBy: any = [
+    { promoted: 'desc' },
+    sortBy === 'price_asc'  ? { price: 'asc' }
+    : sortBy === 'price_desc' ? { price: 'desc' }
+    : { createdAt: 'desc' },
+  ];
+
+  // Si hay filtro geográfico, traemos más registros y filtramos en memoria
+  const useGeoFilter = lat !== null && lng !== null && radius !== null;
+  const fetchLimit = useGeoFilter ? 500 : limit;
+  const fetchSkip  = useGeoFilter ? 0 : (page - 1) * limit;
+
+  const [rawListings, total] = await Promise.all([
+    prisma.listing.findMany({
+      where,
+      orderBy,
+      skip: fetchSkip,
+      take: fetchLimit,
+      include: {
+        images:   { orderBy: { order: 'asc' }, take: 1 },
+        user:     { select: { id: true, name: true, image: true } },
+        category: true,
+      },
+    }),
+    prisma.listing.count({ where }),
+  ]);
+
+  let listings = rawListings;
+
+  // Filtrar por radio geográfico si se proporcionaron coordenadas
+  if (useGeoFilter) {
+    listings = rawListings.filter((l: any) => {
+      if (l.latitude == null || l.longitude == null) return false;
+      return haversineKm(lat!, lng!, l.latitude, l.longitude) <= radius!;
+    });
+    // Paginar después del filtro geográfico
+    const start = (page - 1) * limit;
+    listings = listings.slice(start, start + limit);
+  }
+
+  return NextResponse.json(
+    {
+      listings,
+      query: q,
+      geoFilter: useGeoFilter ? { lat, lng, radius } : null,
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+    },
+    {
+      headers: {
+        // Cache público de 10s — acelera búsquedas repetidas sin filtros de usuario
+        'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30',
+      },
+    }
+  );
+}

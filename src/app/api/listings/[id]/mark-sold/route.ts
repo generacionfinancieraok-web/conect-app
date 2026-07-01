@@ -56,6 +56,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       data: { completedPurchases: { increment: 1 } },
     });
 
+    // Datos del vendedor para notificaciones
+    const seller = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { name: true },
+    });
+
     // Notificar al comprador
     sendPushNotification(buyer.id, {
       title: '🎉 ¡Venta concretada!',
@@ -70,6 +76,33 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         body: `La venta de "${listing.title}" fue marcada como concretada. ¡Calificá tu experiencia!`,
         data: JSON.stringify({ listingId: listing.id }),
         userId: buyer.id,
+      },
+    }).catch(() => {});
+
+    // Pedir reseña al comprador sobre el vendedor
+    prisma.notification.create({
+      data: {
+        type: 'REVIEW',
+        title: '⭐ ¿Cómo fue tu compra?',
+        body: `Calificá tu experiencia con ${seller?.name ?? 'el vendedor'}`,
+        data: JSON.stringify({ reviewedId: userId, listingId: listing.id, action: 'LEAVE_REVIEW' }),
+        userId: buyer.id,
+      },
+    }).catch(() => {});
+    sendPushNotification(buyer.id, {
+      title: '⭐ ¿Cómo fue tu compra?',
+      body: `Calificá tu experiencia con ${seller?.name ?? 'el vendedor'}`,
+      data: { type: 'REVIEW', reviewedId: userId, listingId: listing.id },
+    }).catch(() => {});
+
+    // Pedir reseña al vendedor sobre el comprador
+    prisma.notification.create({
+      data: {
+        type: 'REVIEW',
+        title: '⭐ ¿Cómo fue la venta?',
+        body: `Calificá tu experiencia con ${buyer.name ?? 'el comprador'}`,
+        data: JSON.stringify({ reviewedId: buyer.id, listingId: listing.id, action: 'LEAVE_REVIEW' }),
+        userId: userId,
       },
     }).catch(() => {});
   }

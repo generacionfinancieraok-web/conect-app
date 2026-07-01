@@ -39,7 +39,29 @@ export async function GET(
 
   const { searchParams } = new URL(req.url);
   const cursor = searchParams.get('cursor');
+  const after = searchParams.get('after'); // poll for messages newer than this ID
   const limit = 30;
+
+  // Polling mode: return only messages after a given message ID
+  if (after) {
+    const afterMsg = await prisma.message.findUnique({
+      where: { id: after },
+      select: { createdAt: true },
+    });
+    if (afterMsg) {
+      const newMessages = await prisma.message.findMany({
+        where: { conversationId: params.id, createdAt: { gt: afterMsg.createdAt } },
+        orderBy: { createdAt: 'asc' },
+        include: { sender: { select: { id: true, name: true, image: true } } },
+      });
+      // Mark as read
+      await prisma.message.updateMany({
+        where: { conversationId: params.id, senderId: { not: userId }, read: false },
+        data: { read: true },
+      });
+      return NextResponse.json({ messages: newMessages, nextCursor: null });
+    }
+  }
 
   const messages = await prisma.message.findMany({
     where: { conversationId: params.id },
@@ -117,11 +139,9 @@ export async function POST(
     }),
   ]);
 
-  // Emitir via Socket.io
-  const io = (global as any).io;
-  if (io) {
-    io.to(`conversation:${params.id}`).emit('new_message', message);
-  }
+  // Emitir a clientes SSE conectados a esta conversación
+  const { chatEmitter } = await import('@/lib/chat-emitter');
+  chatEmitter.emit(`msg:${params.id}`, message);
 
   // Push notification + DB notification a los otros participantes
   const sender = conversation.participants.find((p) => p.id === userId);

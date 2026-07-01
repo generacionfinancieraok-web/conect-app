@@ -215,6 +215,9 @@ model Listing {
   @@index([promoted])
   @@index([latitude, longitude])
   @@index([listingType])
+  @@index([status, createdAt])          // home feed + search ordenado por fecha
+  @@index([status, promoted, createdAt]) // promoted listings primero
+  @@index([status, price])               // filtro por precio
   @@map("listings")
 }
 
@@ -345,6 +348,8 @@ model Message {
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([conversationId])
+  @@index([conversationId, createdAt])  // polling + paginación de mensajes
+  @@index([conversationId, read])       // conteo de no leídos
   @@map("messages")
 }
 
@@ -504,6 +509,7 @@ model Notification {
 
   @@index([userId])
   @@index([read])
+  @@index([userId, read, createdAt])  // panel notificaciones no leídas
   @@map("notifications")
 }
 
